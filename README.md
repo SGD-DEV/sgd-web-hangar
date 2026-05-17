@@ -162,7 +162,20 @@ curl http://127.0.0.1:3742/health
 
 ## Screenshots
 
-> _Screenshots live in [`docs/screenshots/`](docs/screenshots/) — add yours via PR._
+### Service manager
+One-click start, stop, restart for Apache, Nginx, MySQL, PostgreSQL, and Mailpit, with live status, port, and uptime.
+
+![Hangar service manager](docs/screenshots/servers.png)
+
+### Package manager
+Install and update PHP runtimes, databases, web servers, and tools from the built-in registry. Add anything else by URL.
+
+![Hangar packages page](docs/screenshots/packages.png)
+
+### Settings + MCP integration
+Tune ports, toggle SSL, set the projects root, and copy the MCP endpoint configuration into your AI editor.
+
+![Hangar settings page](docs/screenshots/settings.png)
 
 ---
 
