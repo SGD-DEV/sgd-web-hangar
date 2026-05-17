@@ -1,0 +1,19 @@
+{
+  "service": "apache",
+  "versions": [
+    {
+      "version": "2.4.62",
+      "url": "https://www.apachelounge.com/download/VS17/binaries/httpd-2.4.62-240904-win64-VS17.zip",
+      "sha256": "",
+      "filename": "httpd-2.4.62-240904-win64-VS17.zip",
+      "size": 0
+    },
+    {
+      "version": "2.4.58",
+      "url": "https://www.apachelounge.com/download/VS17/binaries/httpd-2.4.58-231030-win64-VS17.zip",
+      "sha256": "",
+      "filename": "httpd-2.4.58-231030-win64-VS17.zip",
+      "size": 0
+    }
+  ]
+}

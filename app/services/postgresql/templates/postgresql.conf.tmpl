@@ -1,0 +1,15 @@
+port = {{.Port}}
+listen_addresses = 'localhost'
+max_connections = 100
+
+shared_buffers = 128MB
+dynamic_shared_memory_type = windows
+
+log_destination = 'stderr'
+logging_collector = on
+log_directory = '{{.LogDir}}'
+log_filename = 'postgresql_%Y-%m-%d.log'
+
+datestyle = 'iso, mdy'
+timezone = 'UTC'
+lc_messages = 'en_US.UTF-8'

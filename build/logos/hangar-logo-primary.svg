@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 170" width="440" height="170">
+  <g transform="translate(30, 25)">
+    <path d="M 0 115 L 0 55 A 60 55 0 0 1 120 55 L 120 115 Z" fill="#0F172A"/>
+    <path d="M 22 115 L 22 65 A 38 33 0 0 1 98 65 L 98 115 Z" fill="#FB923C"/>
+    <path d="M 48 70 L 62 82 L 48 94" stroke="#0F172A" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="66" y="91" width="14" height="3.5" rx="1" fill="#0F172A"/>
+    <rect x="-10" y="116" width="140" height="7" rx="2" fill="#0F172A"/>
+  </g>
+  <text x="180" y="110" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="64" font-weight="500" fill="#0F172A" letter-spacing="-2">Hangar</text>
+  <text x="182" y="140" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="400" fill="#64748B">Local development environment</text>
+</svg>

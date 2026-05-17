@@ -1,0 +1,89 @@
+# ---------------------------------------------------------------------
+# Hangar .gitignore
+# Anything user-data, build output, downloaded dependencies, IDE config,
+# or AI-tool config stays out of the public repo.
+# ---------------------------------------------------------------------
+
+# --- Build output ---
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/build/bin/
+/build/windows/installer/*.tmp
+/build/windows/installer/wails_tools.nsh
+frontend/dist/
+frontend/node_modules/
+frontend/src/wailsjs/
+
+# --- Runtime data (lives under data/ in dev, %LOCALAPPDATA%\Hangar in prod) ---
+data/installed/
+data/ssl/
+data/logs/
+data/conf/
+data/mysql-data/
+data/pg-data/
+data/www/
+data/audits/
+data/*.db
+
+# --- User-created projects. Anchored with leading slash so it doesn't
+# match app/projects/ or frontend/src/components/projects/ which ARE
+# real source dirs.
+/projects/
+
+# --- Bootstrapped build tooling (Go toolchain + Wails CLI cache pulled
+# in by build-installer.ps1). Hundreds of MB; reproducible from scratch.
+.build-tools/
+
+# --- IDE / editor ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-*
+.history/
+
+# --- AI assistant config / rules (kept out of the public repo) ---
+.windsurfrules
+.cursorrules
+.cursor/
+.claude/
+.aider*
+.continueignore
+.continue/
+
+# --- OS noise ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Go ---
+vendor/
+*.test
+*.out
+coverage.out
+
+# --- Node ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- Local env / secrets ---
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+
+# --- Misc working files ---
+*.log
+*.bak
+*.orig
+*~
+TODO.local.md
+NOTES.local.md

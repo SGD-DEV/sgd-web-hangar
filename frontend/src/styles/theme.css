@@ -1,0 +1,35 @@
+:root {
+  --bg-primary: #0f1010;
+  --bg-secondary: #1a1c1a;
+  --bg-sidebar: #111211;
+  --bg-selected: #1e2a1e;
+  --accent: #b5f23d;
+  --accent-hover: #c8ff4a;
+  --text-primary: #e8e8e6;
+  --text-muted: #6b7068;
+  --text-dim: #3d4039;
+  --border: #252720;
+  --status-green: #4ade80;
+  --status-red: #f87171;
+  --status-yellow: #fbbf24;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes progress-bar {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+.animate-progress {
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-hover) 50%, var(--accent) 100%);
+  background-size: 200% 100%;
+  animation: progress-bar 1.5s ease infinite;
+}

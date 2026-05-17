@@ -1,0 +1,19 @@
+{
+  "service": "postgresql",
+  "versions": [
+    {
+      "version": "16.4",
+      "url": "https://get.enterprisedb.com/postgresql/postgresql-16.4-1-windows-x64-binaries.zip",
+      "sha256": "",
+      "filename": "postgresql-16.4-1-windows-x64-binaries.zip",
+      "size": 0
+    },
+    {
+      "version": "15.8",
+      "url": "https://get.enterprisedb.com/postgresql/postgresql-15.8-1-windows-x64-binaries.zip",
+      "sha256": "",
+      "filename": "postgresql-15.8-1-windows-x64-binaries.zip",
+      "size": 0
+    }
+  ]
+}

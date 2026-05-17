@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or general discussion
+    url: https://github.com/Anssol-Labs/hangar/discussions
+    about: Ask in Discussions before opening an issue if you're not sure it's a bug.
+  - name: Security vulnerability
+    url: https://github.com/Anssol-Labs/hangar/blob/main/SECURITY.md
+    about: Please report security issues privately via the process in SECURITY.md, not as a public issue.

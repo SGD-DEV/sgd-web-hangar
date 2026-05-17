@@ -1,0 +1,21 @@
+{
+  "fixed": {
+    "file_version": "1.0.0.0"
+  },
+  "info": {
+    "0409": {
+      "Comments": "Local Web Development Environment",
+      "CompanyName": "Hangar",
+      "FileDescription": "Hangar",
+      "FileVersion": "1.0.0.0",
+      "InternalName": "hangar",
+      "LegalCopyright": "Copyright 2026 Hangar",
+      "LegalTrademarks": "",
+      "OriginalFilename": "hangar.exe",
+      "PrivateBuild": "",
+      "ProductName": "Hangar",
+      "ProductVersion": "1.0.0.0",
+      "SpecialBuild": ""
+    }
+  }
+}

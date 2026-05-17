@@ -1,0 +1,21 @@
+<VirtualHost *:{{.Port}}>
+    ServerName {{.ServerName}}
+    DocumentRoot "{{.DocumentRoot}}"
+
+    <Directory "{{.DocumentRoot}}">
+        Options Indexes FollowSymLinks ExecCGI
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    DirectoryIndex index.php index.html
+
+{{if .SSLEnabled}}
+    SSLEngine on
+    SSLCertificateFile "{{.SSLCertPath}}"
+    SSLCertificateKeyFile "{{.SSLKeyPath}}"
+{{end}}
+
+    ErrorLog "{{.LogDir}}/{{.ServerName}}_error.log"
+    CustomLog "{{.LogDir}}/{{.ServerName}}_access.log" combined
+</VirtualHost>
