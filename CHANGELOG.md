@@ -8,9 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 _Nothing yet._
 
-## [1.0.0] — 2026-05-18
+## [1.0.0] — 2026-05-19
 
 Initial public release.
+
+### Fixed (pre-release polish)
+
+- Embedded `mkcert.exe` so SSL works on a fresh install without the user having to track down the binary separately.
+- MCP server now hardened against DNS-rebinding (Host + Origin must resolve to `localhost` / `127.0.0.1` / `::1`).
+- `Server.Start` binds the listener synchronously so port conflicts surface as real errors instead of silent "running" + connection refused.
+- 5 s shutdown ceiling on the MCP server — a hung SSE client no longer blocks app quit.
+- Strict domain validation on project create to prevent vhost-file injection.
+- TCP-probe on MySQL service before reporting "ready" to avoid race conditions on startup.
+- Apache + Nginx vhost linker reworked for cleaner regeneration + error reporting.
 
 ### Added
 
