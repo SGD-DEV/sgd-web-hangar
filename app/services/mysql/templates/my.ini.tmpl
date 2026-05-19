@@ -4,7 +4,11 @@ port={{.Port}}
 [mysqld]
 datadir={{.DataDir}}
 port={{.Port}}
-bind-address=0.0.0.0
+# Listen on localhost only. SECURITY.md commits to "local-bind only" for the
+# default root-with-empty-password setup; binding 0.0.0.0 broke that promise
+# — anyone on the same wifi could connect as root. If you need LAN/Docker
+# access, change this AND set a real root password first.
+bind-address=127.0.0.1
 
 default-storage-engine=InnoDB
 innodb_buffer_pool_size=128M

@@ -1500,8 +1500,11 @@ func (a *App) OpenExternalTerminal(cwd string) error {
 		// PowerShell) doesn't override the augmented env we pass.
 		cmd = exec.Command(wt, "-d", cwd, "cmd.exe")
 	} else {
-		// `cmd /K cd /d <cwd>` opens cmd, keeps it open after the cd.
-		cmd = exec.Command("cmd.exe", "/K", "cd /d "+cwd)
+		// cmd.Dir below sets the child's working directory, so we don't
+		// need an extra `cd /d` (which broke on paths with spaces because
+		// the whole "cd /d <path>" was passed as a single /K argument and
+		// cmd.exe split the path on the first space).
+		cmd = exec.Command("cmd.exe", "/K")
 	}
 	cmd.Env = env
 	cmd.Dir = cwd
@@ -1554,7 +1557,7 @@ func (a *App) LaunchHeidiSQL(dbType string) error {
 	// Pre-create default sessions so HeidiSQL opens with ready-to-use connections
 	heidisql.EnsureDefaultSessions(dir, []heidisql.DefaultSession{
 		{Name: "Hangar MySQL", Host: "127.0.0.1", Port: mysqlPort, User: "root", NetType: heidisql.NetTypeMySQLTCP},
-		{Name: "Hangar PostgreSQL", Host: "127.0.0.1", Port: pgPort, User: "postgres", NetType: heidisql.NetTypePostgresTCP, Library: "libpq-15.dll"},
+		{Name: "Hangar PostgreSQL", Host: "127.0.0.1", Port: pgPort, User: "postgres", NetType: heidisql.NetTypePostgresTCP, Library: heidisql.FindPostgresLibrary(dir)},
 	})
 
 	port := mysqlPort
@@ -1594,7 +1597,7 @@ func (a *App) OpenHeidiSQL() error {
 	// Pre-create default sessions
 	heidisql.EnsureDefaultSessions(dir, []heidisql.DefaultSession{
 		{Name: "Hangar MySQL", Host: "127.0.0.1", Port: mysqlPort, User: "root", NetType: heidisql.NetTypeMySQLTCP},
-		{Name: "Hangar PostgreSQL", Host: "127.0.0.1", Port: pgPort, User: "postgres", NetType: heidisql.NetTypePostgresTCP, Library: "libpq-15.dll"},
+		{Name: "Hangar PostgreSQL", Host: "127.0.0.1", Port: pgPort, User: "postgres", NetType: heidisql.NetTypePostgresTCP, Library: heidisql.FindPostgresLibrary(dir)},
 	})
 
 	return heidisql.LaunchSessionManager(dir)

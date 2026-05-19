@@ -2,13 +2,12 @@ package ssl
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 )
 
 func (m *Manager) IsCAInstalled() bool {
-	mkcert := m.paths.MkcertPath()
-	if _, err := os.Stat(mkcert); os.IsNotExist(err) {
+	mkcert, err := m.resolveMkcert()
+	if err != nil {
 		return false
 	}
 
@@ -18,8 +17,7 @@ func (m *Manager) IsCAInstalled() bool {
 		return false
 	}
 
-	caRoot := string(output)
-	if caRoot == "" {
+	if string(output) == "" {
 		return false
 	}
 
@@ -27,9 +25,9 @@ func (m *Manager) IsCAInstalled() bool {
 }
 
 func (m *Manager) GetCARoot() (string, error) {
-	mkcert := m.paths.MkcertPath()
-	if _, err := os.Stat(mkcert); os.IsNotExist(err) {
-		return "", fmt.Errorf("ssl: mkcert not found at %s", mkcert)
+	mkcert, err := m.resolveMkcert()
+	if err != nil {
+		return "", err
 	}
 
 	cmd := exec.Command(mkcert, "-CAROOT")

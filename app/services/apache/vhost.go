@@ -28,7 +28,22 @@ func (a *Apache) CreateVhost(vhost VirtualHost) error {
 	fileName := strings.ReplaceAll(vhost.ServerName, ".", "_") + ".conf"
 	confPath := filepath.Join(vhostDir, fileName)
 
-	return renderTemplateStr(vhostConfTmpl, confPath, vhost)
+	// vhost.conf.tmpl references {{.LogDir}} which VirtualHost doesn't
+	// carry — fold it in here so the rendered ErrorLog/CustomLog paths
+	// aren't empty strings.
+	data := map[string]interface{}{
+		"ServerName":   vhost.ServerName,
+		"DocumentRoot": filepath.ToSlash(vhost.DocumentRoot),
+		"Port":         vhost.Port,
+		"PHPVersion":   vhost.PHPVersion,
+		"SSLEnabled":   vhost.SSLEnabled,
+		"SSLCertPath":  filepath.ToSlash(vhost.SSLCertPath),
+		"SSLKeyPath":   filepath.ToSlash(vhost.SSLKeyPath),
+		"CustomConfig": vhost.CustomConfig,
+		"LogDir":       filepath.ToSlash(a.paths.LogsPath()),
+	}
+
+	return renderTemplateStr(vhostConfTmpl, confPath, data)
 }
 
 func (a *Apache) DeleteVhost(serverName string) error {

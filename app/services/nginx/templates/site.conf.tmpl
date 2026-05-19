@@ -1,7 +1,7 @@
 server {
     listen {{.Listen}};
     server_name {{.ServerName}};
-    root {{.DocumentRoot}};
+    root "{{.DocumentRoot}}";
     index index.php index.html index.htm;
 
     location / {
@@ -12,15 +12,15 @@ server {
         fastcgi_pass   {{if .PHPFPMSocket}}{{.PHPFPMSocket}}{{else}}127.0.0.1:9000{{end}};
         fastcgi_index  index.php;
         fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
-        include        {{.PrefixDir}}/conf/fastcgi_params;
+        include        "{{.PrefixDir}}/conf/fastcgi_params";
     }
 
 {{if .SSLEnabled}}
     listen 443 ssl;
-    ssl_certificate     {{.SSLCertPath}};
-    ssl_certificate_key {{.SSLKeyPath}};
+    ssl_certificate     "{{.SSLCertPath}}";
+    ssl_certificate_key "{{.SSLKeyPath}}";
 {{end}}
 
-    access_log {{.LogDir}}/{{.ServerName}}_access.log;
-    error_log  {{.LogDir}}/{{.ServerName}}_error.log;
+    access_log "{{.LogDir}}/{{.ServerName}}_access.log";
+    error_log  "{{.LogDir}}/{{.ServerName}}_error.log";
 }

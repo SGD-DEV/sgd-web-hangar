@@ -42,7 +42,23 @@ CustomLog "{{.LogDir}}/apache_access.log" combined
 
 <IfModule mime_module>
     TypesConfig "{{.ServerRoot}}/conf/mime.types"
-    AddType application/x-httpd-php .php
 </IfModule>
+{{if .PHPCgiExe}}
+# PHP via CGI. Without this block Apache serves index.php as a download:
+# AddType alone only labels the Content-Type as application/x-httpd-php,
+# which the browser doesn't know how to render so it offers to save the
+# file. Routing .php through php-cgi.exe via Action + ScriptAlias makes
+# Apache actually execute PHP and return the rendered HTML.
+ScriptAlias /__hangar-php-cgi/ "{{.PHPCgiDir}}"
+<Directory "{{.PHPCgiDir}}">
+    AllowOverride None
+    Options None
+    Require all granted
+</Directory>
+<FilesMatch "\.php$">
+    SetHandler application/x-httpd-php
+</FilesMatch>
+Action application/x-httpd-php "/__hangar-php-cgi/php-cgi.exe"
+{{end}}
 
 IncludeOptional "{{.ConfDir}}/vhosts/*.conf"

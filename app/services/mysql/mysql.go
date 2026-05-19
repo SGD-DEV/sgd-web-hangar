@@ -3,9 +3,11 @@ package mysql
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"text/template"
 	"time"
@@ -14,6 +16,21 @@ import (
 	"github.com/devour-app/devour/app/logs"
 	"github.com/devour-app/devour/app/services"
 )
+
+// tcpProbe returns true if a TCP connect to host:port succeeds within timeout.
+// mysqld's "started" PID does NOT mean it's accepting connections — there's
+// a 1–10s gap while InnoDB recovers and the network listener spins up. We
+// used to set Running=true the instant cmd.Start() returned, so users who
+// clicked "Open in HeidiSQL" right away got connection-refused even though
+// the UI said "running". Probing the port closes that gap.
+func tcpProbe(host string, port int, timeout time.Duration) bool {
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, strconv.Itoa(port)), timeout)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
 
 type MySQL struct {
 	services.BaseService
@@ -121,9 +138,47 @@ func (m *MySQL) Start() error {
 		return fmt.Errorf("mysql: starting: %w", err)
 	}
 
+	pid := m.cmd.Process.Pid
+	m.ProcessPID = pid
+
+	// Probe the configured port until mysqld actually accepts connections.
+	// 30s is generous — typical cold-start is 1–5s, first-run with InnoDB
+	// recovery on a slow disk can hit 15–20s. We unlock during the probe so
+	// Status() stays responsive and the UI can show "starting" instead of
+	// freezing.
+	port := m.ServicePort
+	m.StatusText = services.StatusStarting
+	m.mu.Unlock()
+	deadline := time.Now().Add(30 * time.Second)
+	ready := false
+	for time.Now().Before(deadline) {
+		if tcpProbe("127.0.0.1", port, 500*time.Millisecond) {
+			ready = true
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	m.mu.Lock()
+
+	if !ready {
+		// mysqld forked but never listened — usually a my.ini error or a
+		// port collision. Kill the orphan and surface the log tail.
+		if m.cmd != nil && m.cmd.Process != nil {
+			_ = m.cmd.Process.Kill()
+		}
+		m.StatusText = services.StatusStopped
+		errLog := filepath.Join(m.paths.LogsPath(), "mysql_error.log")
+		if tail := readLogTail(errLog, 4096); tail != "" {
+			m.LastError = "MySQL didn't accept connections in 30s. Last error log entries:\n" + tail
+		} else {
+			m.LastError = "MySQL didn't accept connections in 30s and no error log was written"
+		}
+		m.logStore.Add("mysql", m.LastError)
+		return fmt.Errorf("mysql: %s", m.LastError)
+	}
+
 	m.Running = true
 	m.StatusText = services.StatusRunning
-	m.ProcessPID = m.cmd.Process.Pid
 	m.StartTime = time.Now()
 	m.LastError = ""
 
@@ -131,6 +186,32 @@ func (m *MySQL) Start() error {
 
 	m.logStore.Add("mysql", fmt.Sprintf("MySQL started (PID: %d)", m.ProcessPID))
 	return nil
+}
+
+// readLogTail returns up to maxBytes from the end of path. Used so a
+// failed-to-start mysqld shows its own error log entries in the UI
+// instead of just "process exited".
+func readLogTail(path string, maxBytes int) string {
+	info, err := os.Stat(path)
+	if err != nil || info.Size() == 0 {
+		return ""
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	offset := int64(0)
+	readSize := info.Size()
+	if readSize > int64(maxBytes) {
+		offset = readSize - int64(maxBytes)
+		readSize = int64(maxBytes)
+	}
+	buf := make([]byte, readSize)
+	if _, err := f.ReadAt(buf, offset); err != nil {
+		return ""
+	}
+	return string(buf)
 }
 
 func (m *MySQL) Stop() error {
@@ -416,12 +497,18 @@ func (m *MySQL) killStaleMysqld() {
 
 // writeInitSQL writes an idempotent SQL file that creates root TCP users.
 // MySQL --init-file runs this on every startup, before accepting client connections.
+//
+// We intentionally only grant 'root'@'localhost' and 'root'@'127.0.0.1' —
+// granting 'root'@'%' (any host) with an empty password meant anyone on the
+// same LAN could connect, contradicting the SECURITY.md "local-bind only"
+// promise. If a user actually needs network access they can flip the bind-
+// address back and set a password first.
 func (m *MySQL) writeInitSQL() string {
-	sqlContent := `-- Devour: grant root access via TCP (idempotent)
+	sqlContent := `-- Devour: grant root access via local TCP (idempotent)
 CREATE USER IF NOT EXISTS 'root'@'127.0.0.1' IDENTIFIED BY '';
-CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY '';
+CREATE USER IF NOT EXISTS 'root'@'localhost' IDENTIFIED BY '';
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION;
-GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 `
 	initPath := filepath.Join(m.paths.ConfPath("mysql"), "init-grants.sql")

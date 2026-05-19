@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/devour-app/devour/app/config"
 	"github.com/devour-app/devour/app/logs"
@@ -13,6 +16,37 @@ import (
 	"github.com/devour-app/devour/app/projects"
 	"github.com/devour-app/devour/app/services"
 )
+
+// isLocalRequest blocks DNS-rebinding attacks. The MCP server binds 127.0.0.1
+// but the Host header can still be an attacker-controlled name that resolves
+// to 127.0.0.1 via a malicious DNS server — a webpage on that domain then
+// reaches the MCP server through the user's browser. Requiring Host to be
+// localhost / 127.0.0.1 closes that path. Origin (when present) must also
+// look local; for native MCP clients Origin is usually absent so we don't
+// require it.
+func isLocalRequest(r *http.Request) bool {
+	host := r.Host
+	if i := strings.LastIndex(host, ":"); i > 0 {
+		host = host[:i]
+	}
+	host = strings.ToLower(strings.Trim(host, "[]"))
+	switch host {
+	case "localhost", "127.0.0.1", "::1":
+		// ok
+	default:
+		return false
+	}
+	if origin := r.Header.Get("Origin"); origin != "" {
+		o := strings.ToLower(origin)
+		if !strings.HasPrefix(o, "http://localhost") &&
+			!strings.HasPrefix(o, "https://localhost") &&
+			!strings.HasPrefix(o, "http://127.0.0.1") &&
+			!strings.HasPrefix(o, "https://127.0.0.1") {
+			return false
+		}
+	}
+	return true
+}
 
 const (
 	MCPProtocolVersion = "2024-11-05"
@@ -59,14 +93,19 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/health", s.handleHealth)
 
 	addr := fmt.Sprintf("127.0.0.1:%d", s.port)
-	s.httpServer = &http.Server{
-		Addr:    addr,
-		Handler: mux,
+	// Bind synchronously so we can return a real error if port 3742 is
+	// taken. The old code spawned ListenAndServe in a goroutine and set
+	// running=true unconditionally — clients then got connection refused
+	// while the UI happily reported "MCP running".
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("mcp: binding %s: %w", addr, err)
 	}
+	s.httpServer = &http.Server{Handler: mux}
 
 	go func() {
-		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Printf("mcp: server error: %v\n", err)
+		if err := s.httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
+			s.logStore.Add("mcp", fmt.Sprintf("server error: %v", err))
 		}
 	}()
 
@@ -83,7 +122,12 @@ func (s *Server) Stop() {
 		return
 	}
 
-	s.httpServer.Shutdown(context.Background())
+	// 5s ceiling. Without a timeout, a hung SSE client kept the shutdown
+	// blocked forever and the Wails OnShutdown callback never returned, so
+	// "Quit Hangar" appeared to do nothing.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = s.httpServer.Shutdown(ctx)
 	s.running = false
 }
 
@@ -123,6 +167,10 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
+	if !isLocalRequest(r) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -149,10 +197,22 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSSE(w http.ResponseWriter, r *http.Request) {
+	if !isLocalRequest(r) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
+	// Echo the request Origin instead of "*". With "*" any website could
+	// open a long-lived stream to the MCP server through the user's
+	// browser; combined with no auth on /mcp that was a real exfil path.
+	// We've already verified Origin (if present) is localhost via
+	// isLocalRequest, so echoing back is safe.
+	if origin := r.Header.Get("Origin"); origin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Vary", "Origin")
+	}
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {

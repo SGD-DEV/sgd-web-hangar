@@ -121,6 +121,42 @@ func LaunchSessionManager(heidisqlDir string) error {
 	return nil
 }
 
+// FindPostgresLibrary is the exported wrapper around findPostgresLibrary.
+// app.go uses it when seeding default sessions so the pre-configured
+// "Hangar PostgreSQL" session matches whichever libpq DLL the installed
+// HeidiSQL actually ships with — defaulting to libpq-15.dll baked the
+// version in at compile time and broke on any newer HeidiSQL bundle.
+func FindPostgresLibrary(heidisqlDir string) string {
+	if lib := findPostgresLibrary(heidisqlDir); lib != "" {
+		return lib
+	}
+	return "libpq-15.dll" // last-resort default
+}
+
+// findPostgresLibrary returns the libpq DLL filename HeidiSQL should load
+// for a PostgreSQL connection. HeidiSQL ships with versioned DLLs (e.g.
+// libpq-15.dll on 12.x) and the bundled name has changed across HeidiSQL
+// releases. Without --library= HeidiSQL falls back to libmariadb.dll which
+// has no PQconnectdb, producing the "Could not find procedure address for
+// PQconnectdb" error we saw.
+//
+// Returns "" if no candidate exists — caller can omit --library and let
+// HeidiSQL try its own default.
+func findPostgresLibrary(heidisqlDir string) string {
+	candidates := []string{
+		"libpq-15.dll",
+		"libpq-14.dll",
+		"libpq-13.dll",
+		"libpq.dll",
+	}
+	for _, name := range candidates {
+		if _, err := os.Stat(filepath.Join(heidisqlDir, name)); err == nil {
+			return name
+		}
+	}
+	return ""
+}
+
 // Launch opens HeidiSQL and directly connects to the specified database
 func Launch(heidisqlDir string, params ConnectionParams) error {
 	exePath := filepath.Join(heidisqlDir, "heidisql.exe")
@@ -139,6 +175,14 @@ func Launch(heidisqlDir string, params ConnectionParams) error {
 		fmt.Sprintf("--port=%d", params.Port),
 		fmt.Sprintf("--user=%s", params.User),
 		fmt.Sprintf("--nettype=%s", netType),
+	}
+
+	// Tell HeidiSQL which client DLL to load. Without this the postgres
+	// session loads libmariadb.dll by default and errors on PQconnectdb.
+	if params.DBType == "postgresql" {
+		if lib := findPostgresLibrary(heidisqlDir); lib != "" {
+			args = append(args, fmt.Sprintf("--library=%s", lib))
+		}
 	}
 
 	if params.Password != "" {

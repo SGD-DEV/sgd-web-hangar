@@ -28,7 +28,23 @@ func (n *Nginx) CreateSite(site SiteConfig) error {
 	fileName := strings.ReplaceAll(site.ServerName, ".", "_") + ".conf"
 	confPath := filepath.Join(sitesDir, fileName)
 
-	return renderTemplateStr(siteConfTmpl, confPath, site)
+	// site.conf.tmpl references PrefixDir (for fastcgi_params) and LogDir.
+	// SiteConfig doesn't carry those — fold them in here so the rendered
+	// vhost has valid paths.
+	data := map[string]interface{}{
+		"ServerName":   site.ServerName,
+		"DocumentRoot": filepath.ToSlash(site.DocumentRoot),
+		"Listen":       site.Listen,
+		"PHPFPMSocket": site.PHPFPMSocket,
+		"SSLEnabled":   site.SSLEnabled,
+		"SSLCertPath":  filepath.ToSlash(site.SSLCertPath),
+		"SSLKeyPath":   filepath.ToSlash(site.SSLKeyPath),
+		"CustomConfig": site.CustomConfig,
+		"PrefixDir":    filepath.ToSlash(n.GetPrefixDir()),
+		"LogDir":       filepath.ToSlash(n.paths.LogsPath()),
+	}
+
+	return renderTemplateStr(siteConfTmpl, confPath, data)
 }
 
 func (n *Nginx) DeleteSite(serverName string) error {

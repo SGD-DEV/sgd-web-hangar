@@ -13,6 +13,12 @@
 /build/bin/
 /build/windows/installer/*.tmp
 /build/windows/installer/wails_tools.nsh
+
+# Embedded third-party binaries that go:embed needs at build time. These
+# MUST be tracked so a fresh clone can `wails build` without the dev
+# having to chase down where mkcert.exe came from.
+!app/ssl/bin/mkcert.exe
+!assets/binaries/mkcert.exe
 frontend/dist/
 frontend/node_modules/
 frontend/src/wailsjs/

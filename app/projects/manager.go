@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"text/template"
 	"time"
@@ -13,6 +14,29 @@ import (
 	"github.com/devour-app/devour/app/dns"
 	"github.com/devour-app/devour/app/services"
 )
+
+// validDomain matches a single hostname label or dot-joined labels. We accept
+// only what RFC 1123 already allows: lowercase letters, digits, hyphens (not
+// leading/trailing), labels separated by dots, total length capped at 253.
+//
+// This is a hard gate: the domain becomes a filename (vhost .conf), an entry
+// in the hosts file, an argument to PowerShell during elevated hosts edits,
+// and a server_name in nginx/apache configs. Letting "../" or quote chars
+// through any one of those paths is a real injection surface.
+var validDomain = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$`)
+
+func validateDomain(d string) error {
+	if d == "" {
+		return fmt.Errorf("domain is required")
+	}
+	if len(d) > 253 {
+		return fmt.Errorf("domain too long (max 253 chars)")
+	}
+	if !validDomain.MatchString(strings.ToLower(d)) {
+		return fmt.Errorf("domain %q is not a valid hostname (use lowercase letters, digits, hyphens, and dots only)", d)
+	}
+	return nil
+}
 
 // SSLCertGenerator is an interface for generating SSL certificates
 type SSLCertGenerator interface {
@@ -76,9 +100,12 @@ func (m *Manager) CreateWithOptions(opts CreateOptions) (Project, error) {
 	if name == "" {
 		return Project{}, fmt.Errorf("projects: name required")
 	}
-	domain := opts.Domain
+	domain := strings.ToLower(opts.Domain)
 	if domain == "" {
 		domain = strings.ToLower(name) + ".test"
+	}
+	if err := validateDomain(domain); err != nil {
+		return Project{}, fmt.Errorf("projects: %w", err)
 	}
 
 	path := opts.Path
@@ -145,11 +172,19 @@ func (m *Manager) CreateWithOptions(opts CreateOptions) (Project, error) {
 
 func (m *Manager) Delete(name string) error {
 	project, err := m.Get(name)
+	var unlinkErr error
 	if err == nil {
-		m.unlinkProject(project)
+		unlinkErr = m.unlinkProject(project)
 	}
 	if err := m.store.DeleteProject(name); err != nil {
 		return fmt.Errorf("projects: deleting %s: %w", name, err)
+	}
+	// DB row is gone — surface any unlink residue so the user knows a
+	// vhost file or hosts entry may still be hanging around. We don't
+	// abort deletion on this: leaving the project row but having a
+	// partially-removed vhost is worse than the reverse.
+	if unlinkErr != nil {
+		return fmt.Errorf("projects: deleted %s but cleanup incomplete: %w", name, unlinkErr)
 	}
 	return nil
 }
@@ -622,14 +657,27 @@ func (m *Manager) linkProject(project Project, cfg config.AppConfig) {
 }
 
 // unlinkProject removes Apache vhost + Nginx site configs and hosts entry
-func (m *Manager) unlinkProject(project Project) {
+func (m *Manager) unlinkProject(project Project) error {
+	var problems []string
+
 	apacheConf := filepath.Join(m.paths.ConfPath("apache"), "vhosts", domainToFileName(project.Domain))
-	os.Remove(apacheConf)
+	if err := os.Remove(apacheConf); err != nil && !os.IsNotExist(err) {
+		problems = append(problems, fmt.Sprintf("apache vhost: %v", err))
+	}
 
 	nginxConf := filepath.Join(m.paths.ConfPath("nginx"), "sites", domainToFileName(project.Domain))
-	os.Remove(nginxConf)
+	if err := os.Remove(nginxConf); err != nil && !os.IsNotExist(err) {
+		problems = append(problems, fmt.Sprintf("nginx site: %v", err))
+	}
 
-	dns.RemoveHostEntry(project.Domain)
+	if err := dns.RemoveHostEntry(project.Domain); err != nil {
+		problems = append(problems, fmt.Sprintf("hosts entry: %v", err))
+	}
+
+	if len(problems) > 0 {
+		return fmt.Errorf("unlinking %s: %s", project.Domain, strings.Join(problems, "; "))
+	}
+	return nil
 }
 
 func domainToFileName(domain string) string {

@@ -116,8 +116,14 @@ func (n *Nginx) Start() error {
 		return fmt.Errorf("nginx: generating config: %w", err)
 	}
 
-	// Start php-cgi as FastCGI listener on port 9000 for PHP processing
-	if phpCgiPath := n.findPhpCgi(); phpCgiPath != "" {
+	// Start php-cgi as FastCGI listener on port 9000 for PHP processing.
+	// If no PHP version is configured the FastCGI backend never comes up
+	// and every .php request returns 502 with no clue why. Log loudly so
+	// the user knows to install/select a PHP version from the Packages page.
+	phpCgiPath := n.findPhpCgi()
+	if phpCgiPath == "" {
+		n.logStore.Add("nginx", "Warning: no PHP version is active — .php requests will return 502 Bad Gateway. Install/select a PHP version from the Packages page.")
+	} else {
 		n.phpCgiCmd = exec.Command(phpCgiPath, "-b", "127.0.0.1:9000")
 		n.phpCgiCmd.Dir = filepath.Dir(phpCgiPath)
 		services.HideWindow(n.phpCgiCmd)

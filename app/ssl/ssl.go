@@ -31,10 +31,27 @@ func NewManager(paths config.Paths, store *config.Store) *Manager {
 	}
 }
 
+// resolveMkcert returns a usable path to mkcert.exe, extracting the embedded
+// copy on first use if the configured location doesn't have it. This is what
+// makes SSL work on a fresh install — the NSIS installer doesn't ship
+// assets/binaries/mkcert.exe to LOCALAPPDATA, so without this every SSL
+// operation hit "mkcert not found".
+func (m *Manager) resolveMkcert() (string, error) {
+	dest := m.paths.MkcertPath()
+	if _, err := os.Stat(dest); err == nil {
+		return dest, nil
+	}
+	path, err := ensureMkcert(dest)
+	if err != nil {
+		return "", fmt.Errorf("ssl: extracting embedded mkcert to %s: %w", dest, err)
+	}
+	return path, nil
+}
+
 func (m *Manager) InstallCA() error {
-	mkcert := m.paths.MkcertPath()
-	if _, err := os.Stat(mkcert); os.IsNotExist(err) {
-		return fmt.Errorf("ssl: mkcert not found at %s", mkcert)
+	mkcert, err := m.resolveMkcert()
+	if err != nil {
+		return err
 	}
 
 	cmd := exec.Command(mkcert, "-install")
@@ -47,9 +64,9 @@ func (m *Manager) InstallCA() error {
 }
 
 func (m *Manager) UninstallCA() error {
-	mkcert := m.paths.MkcertPath()
-	if _, err := os.Stat(mkcert); os.IsNotExist(err) {
-		return fmt.Errorf("ssl: mkcert not found at %s", mkcert)
+	mkcert, err := m.resolveMkcert()
+	if err != nil {
+		return err
 	}
 
 	cmd := exec.Command(mkcert, "-uninstall")
@@ -62,9 +79,9 @@ func (m *Manager) UninstallCA() error {
 }
 
 func (m *Manager) GenerateCert(domain string) error {
-	mkcert := m.paths.MkcertPath()
-	if _, err := os.Stat(mkcert); os.IsNotExist(err) {
-		return fmt.Errorf("ssl: mkcert not found at %s", mkcert)
+	mkcert, err := m.resolveMkcert()
+	if err != nil {
+		return err
 	}
 
 	sslDir := m.paths.SSLPath()

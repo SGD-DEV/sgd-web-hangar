@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/devour-app/devour/app/services"
+	"github.com/devour-app/devour/app/services/apache"
+	"github.com/devour-app/devour/app/services/nginx"
 )
 
 type VhostLinker struct {
@@ -42,34 +44,20 @@ func (vl *VhostLinker) linkApache(project Project) error {
 		return fmt.Errorf("vhost linker: %w", err)
 	}
 
-	type apacheVhostCreator interface {
-		CreateVhost(vhost interface{}) error
+	apacheSvc, ok := svc.(*apache.Apache)
+	if !ok {
+		return fmt.Errorf("vhost linker: apache service has unexpected type")
 	}
 
-	if creator, ok := svc.(apacheVhostCreator); ok {
-		type VirtualHost struct {
-			ServerName   string
-			DocumentRoot string
-			Port         int
-			PHPVersion   string
-			SSLEnabled   bool
-			SSLCertPath  string
-			SSLKeyPath   string
-		}
-
-		vhost := VirtualHost{
-			ServerName:   project.Domain,
-			DocumentRoot: project.DocumentRoot,
-			Port:         80,
-			PHPVersion:   project.PHPVersion,
-			SSLEnabled:   project.SSLEnabled,
-			SSLCertPath:  project.SSLCertPath,
-			SSLKeyPath:   project.SSLKeyPath,
-		}
-		return creator.CreateVhost(vhost)
-	}
-
-	return fmt.Errorf("vhost linker: apache service does not support vhost creation")
+	return apacheSvc.CreateVhost(apache.VirtualHost{
+		ServerName:   project.Domain,
+		DocumentRoot: project.DocumentRoot,
+		Port:         80,
+		PHPVersion:   project.PHPVersion,
+		SSLEnabled:   project.SSLEnabled,
+		SSLCertPath:  project.SSLCertPath,
+		SSLKeyPath:   project.SSLKeyPath,
+	})
 }
 
 func (vl *VhostLinker) linkNginx(project Project) error {
@@ -78,34 +66,20 @@ func (vl *VhostLinker) linkNginx(project Project) error {
 		return fmt.Errorf("vhost linker: %w", err)
 	}
 
-	type nginxSiteCreator interface {
-		CreateSite(site interface{}) error
+	nginxSvc, ok := svc.(*nginx.Nginx)
+	if !ok {
+		return fmt.Errorf("vhost linker: nginx service has unexpected type")
 	}
 
-	if creator, ok := svc.(nginxSiteCreator); ok {
-		type SiteConfig struct {
-			ServerName   string
-			DocumentRoot string
-			Listen       int
-			PHPFPMSocket string
-			SSLEnabled   bool
-			SSLCertPath  string
-			SSLKeyPath   string
-		}
-
-		site := SiteConfig{
-			ServerName:   project.Domain,
-			DocumentRoot: project.DocumentRoot,
-			Listen:       8080,
-			PHPFPMSocket: "127.0.0.1:9000",
-			SSLEnabled:   project.SSLEnabled,
-			SSLCertPath:  project.SSLCertPath,
-			SSLKeyPath:   project.SSLKeyPath,
-		}
-		return creator.CreateSite(site)
-	}
-
-	return fmt.Errorf("vhost linker: nginx service does not support site creation")
+	return nginxSvc.CreateSite(nginx.SiteConfig{
+		ServerName:   project.Domain,
+		DocumentRoot: project.DocumentRoot,
+		Listen:       8080,
+		PHPFPMSocket: "127.0.0.1:9000",
+		SSLEnabled:   project.SSLEnabled,
+		SSLCertPath:  project.SSLCertPath,
+		SSLKeyPath:   project.SSLKeyPath,
+	})
 }
 
 func (vl *VhostLinker) unlinkApache(project Project) error {
@@ -114,15 +88,11 @@ func (vl *VhostLinker) unlinkApache(project Project) error {
 		return fmt.Errorf("vhost linker: %w", err)
 	}
 
-	type apacheVhostDeleter interface {
-		DeleteVhost(serverName string) error
+	apacheSvc, ok := svc.(*apache.Apache)
+	if !ok {
+		return fmt.Errorf("vhost linker: apache service has unexpected type")
 	}
-
-	if deleter, ok := svc.(apacheVhostDeleter); ok {
-		return deleter.DeleteVhost(project.Domain)
-	}
-
-	return fmt.Errorf("vhost linker: apache service does not support vhost deletion")
+	return apacheSvc.DeleteVhost(project.Domain)
 }
 
 func (vl *VhostLinker) unlinkNginx(project Project) error {
@@ -131,13 +101,9 @@ func (vl *VhostLinker) unlinkNginx(project Project) error {
 		return fmt.Errorf("vhost linker: %w", err)
 	}
 
-	type nginxSiteDeleter interface {
-		DeleteSite(serverName string) error
+	nginxSvc, ok := svc.(*nginx.Nginx)
+	if !ok {
+		return fmt.Errorf("vhost linker: nginx service has unexpected type")
 	}
-
-	if deleter, ok := svc.(nginxSiteDeleter); ok {
-		return deleter.DeleteSite(project.Domain)
-	}
-
-	return fmt.Errorf("vhost linker: nginx service does not support site deletion")
+	return nginxSvc.DeleteSite(project.Domain)
 }
