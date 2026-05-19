@@ -93,3 +93,6 @@ yarn-error.log*
 *~
 TODO.local.md
 NOTES.local.md
+
+# Local-only WinGet manifest staging
+.winget-submission/
