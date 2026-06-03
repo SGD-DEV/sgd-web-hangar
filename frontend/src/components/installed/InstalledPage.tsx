@@ -21,10 +21,13 @@ interface InstalledItem {
 // silently if the backend adds something new.
 const categoryOrder: { id: string; label: string; description: string }[] = [
   { id: 'tools',     label: 'Tools',         description: 'Database clients, editors, utilities' },
-  { id: 'database',  label: 'Databases',     description: 'MySQL and PostgreSQL engines' },
+  { id: 'database',  label: 'Databases',     description: 'MySQL, PostgreSQL, MongoDB' },
+  { id: 'search',    label: 'Search',        description: 'Meilisearch and others' },
   { id: 'php',       label: 'PHP',           description: 'PHP runtimes' },
-  { id: 'webserver', label: 'Web Servers',   description: 'Apache and Nginx' },
-  { id: 'nodejs',    label: 'Node.js',       description: 'Node runtimes' },
+  { id: 'webserver', label: 'Web Servers',   description: 'Apache, Nginx, Caddy' },
+  { id: 'nodejs',    label: 'Node.js',       description: 'Node, Bun, version managers' },
+  { id: 'python',    label: 'Python',        description: 'Python toolchain (uv)' },
+  { id: 'cloud',     label: 'Cloud',         description: 'Deploy CLIs (Cloudflared, Supabase, Fly.io)' },
   { id: 'golang',    label: 'Go',            description: 'Go toolchain' },
   { id: 'other',     label: 'Other',         description: '' },
 ]
@@ -284,18 +287,32 @@ function iconFor(item: InstalledItem): JSX.Element {
   // Tiny short-letter badge keeps the look consistent with the Packages page.
   const text = (
     item.name === 'phpmyadmin' ? 'PMA' :
+    item.name === 'adminer' ? 'ADM' :
     item.name === 'heidisql' ? 'HDS' :
     item.name === 'dbeaver' ? 'DBV' :
     item.name === 'vscode' ? 'VSC' :
     item.name === 'pocketbase' ? 'PB' :
     item.name === 'composer' ? 'CMP' :
+    item.name === 'wp-cli' ? 'WP' :
+    item.name === 'symfony-cli' ? 'SYM' :
+    item.name === 'gh' ? 'GH' :
     item.name === 'mailpit' ? 'MP' :
+    item.name === 'meilisearch' ? 'MS' :
+    item.name === 'mongodb' ? 'MGO' :
     item.name === 'mysql' ? 'SQL' :
     item.name === 'postgresql' ? 'PG' :
     item.name === 'apache' ? 'AP' :
     item.name === 'nginx' ? 'NX' :
+    item.name === 'caddy' ? 'CAD' :
     item.name === 'php' ? 'PHP' :
     item.name === 'node' ? 'JS' :
+    item.name === 'bun' ? 'BUN' :
+    item.name === 'nvm-windows' ? 'NVM' :
+    item.name === 'fnm' ? 'FNM' :
+    item.name === 'uv' ? 'UV' :
+    item.name === 'supabase' ? 'SB' :
+    item.name === 'flyctl' ? 'FLY' :
+    item.name === 'cloudflared' ? 'CF' :
     item.name === 'go' || item.name === 'golang' ? 'GO' :
     '?'
   )

@@ -31,7 +31,10 @@ import (
 	"github.com/devour-app/devour/app/projects"
 	"github.com/devour-app/devour/app/services"
 	"github.com/devour-app/devour/app/services/apache"
+	"github.com/devour-app/devour/app/services/caddy"
 	"github.com/devour-app/devour/app/services/mailpit"
+	"github.com/devour-app/devour/app/services/meilisearch"
+	"github.com/devour-app/devour/app/services/mongodb"
 	"github.com/devour-app/devour/app/services/mysql"
 	"github.com/devour-app/devour/app/services/nginx"
 	"github.com/devour-app/devour/app/services/postgresql"
@@ -195,8 +198,11 @@ func Bootstrap(opts Options, log Logger) (*Core, error) {
 	c.ServiceManager = services.NewManager()
 	c.ServiceManager.Register("apache", apache.New(paths, store, c.Logs))
 	c.ServiceManager.Register("nginx", nginx.New(paths, store, c.Logs))
+	c.ServiceManager.Register("caddy", caddy.New(paths, store, c.Logs))
 	c.ServiceManager.Register("mysql", mysql.New(paths, store, c.Logs))
 	c.ServiceManager.Register("postgresql", postgresql.New(paths, store, c.Logs))
+	c.ServiceManager.Register("mongodb", mongodb.New(paths, store, c.Logs))
+	c.ServiceManager.Register("meilisearch", meilisearch.New(paths, store, c.Logs))
 	c.ServiceManager.Register("mailpit", mailpit.New(paths, store, c.Logs))
 
 	c.PHPManager = php.NewManager(paths, store)

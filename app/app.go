@@ -1699,18 +1699,38 @@ func (a *App) ListInstalledItems() []InstalledItem {
 		case "dbeaver", "vscode", "pocketbase":
 			item.LaunchKind = "exe"
 			item.ExePath = a.findToolExe(p.Name)
-		case "composer":
+		case "composer", "wp-cli":
 			item.LaunchKind = "cli"
 		case "mailpit":
 			item.LaunchKind = "service"
 			item.ServiceName = "mailpit"
 			item.WebURL = "http://127.0.0.1:8025"
-		case "apache", "nginx":
+		case "meilisearch":
+			item.LaunchKind = "service"
+			item.ServiceName = "meilisearch"
+			item.WebURL = "http://127.0.0.1:7700" // built-in web UI + Swagger
+		case "apache", "nginx", "caddy":
 			item.LaunchKind = "service"
 			item.ServiceName = p.Name
-		case "mysql", "postgresql":
+		case "mysql", "postgresql", "mongodb":
 			item.LaunchKind = "service"
 			item.ServiceName = p.Name
+		case "adminer":
+			// Adminer is a single .php file; serve it via the same
+			// vhost trick we use for phpMyAdmin. URL is reserved for
+			// when we wire the /adminer route into the default
+			// phpmyadmin project; for now treat it as a CLI/file
+			// the user copies into their project.
+			item.LaunchKind = "cli"
+		case "nvm-windows", "fnm", "bun", "uv", "gh", "symfony-cli", "supabase", "flyctl", "cloudflared":
+			// All CLI tools: surface "launch" as opening a terminal
+			// with the tool on PATH would be ideal, but for now we
+			// treat them as CLI so the Installed page shows a
+			// "CLI only - use Terminal" hint rather than a Launch
+			// button that does nothing. The exe is still resolvable
+			// via findToolExe.
+			item.LaunchKind = "cli"
+			item.ExePath = a.findToolExe(p.Name)
 		case "php", "node", "go", "golang":
 			item.LaunchKind = "runtime"
 		default:
@@ -1769,6 +1789,19 @@ var toolExeNames = map[string]string{
 	"dbeaver":    "dbeaver.exe",
 	"vscode":     "Code.exe",
 	"pocketbase": "pocketbase.exe",
+	// v1.2 additions - all single-binary CLIs that ship in the
+	// package zip at predictable paths. The findToolExe helper will
+	// fall through to one-level-nested if a zip extracts into a
+	// subdir (gh and supabase do this).
+	"nvm-windows": "nvm.exe",
+	"fnm":         "fnm.exe",
+	"bun":         "bun.exe", // ships at bun-windows-x64/bun.exe but nested fallback finds it
+	"uv":          "uv.exe",
+	"gh":          "gh.exe", // ships at gh_VERSION_windows_amd64/bin/gh.exe
+	"symfony-cli": "symfony.exe",
+	"supabase":    "supabase.exe",
+	"flyctl":      "flyctl.exe",
+	"cloudflared": "cloudflared-windows-amd64.exe", // ships as bare .exe
 }
 
 func (a *App) findToolExe(tool string) string {

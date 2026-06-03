@@ -33,8 +33,11 @@ const categoryIcons: Record<string, string> = {
   php: 'PHP',
   webserver: 'WEB',
   database: 'DB',
+  search: 'SRCH',
   nodejs: 'JS',
+  python: 'PY',
   tools: 'TOOL',
+  cloud: 'CLD',
   golang: 'GO',
 }
 

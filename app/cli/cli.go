@@ -106,8 +106,14 @@ func newVersionCmd() *cobra.Command {
 // ---- services lifecycle ----------------------------------------------------
 
 // allServiceNames is the canonical order Hangar uses everywhere. Web
-// servers first, then databases, then mail - matches the Servers page.
-var allServiceNames = []string{"apache", "nginx", "mysql", "postgresql", "mailpit"}
+// servers first, then databases, then search, then mail - matches the
+// Servers page ordering.
+var allServiceNames = []string{
+	"apache", "nginx", "caddy",
+	"mysql", "postgresql", "mongodb",
+	"meilisearch",
+	"mailpit",
+}
 
 // expandTargets turns the user's positional args into a concrete list
 // of service names. Empty args = every service; "all" / "*" too. An
@@ -128,6 +134,12 @@ func expandTargets(args []string) ([]string, error) {
 			return allServiceNames, nil
 		case "pg", "postgres":
 			out = append(out, "postgresql")
+			continue
+		case "mongo":
+			out = append(out, "mongodb")
+			continue
+		case "meili":
+			out = append(out, "meilisearch")
 			continue
 		}
 		if !known[a] {

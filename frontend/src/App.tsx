@@ -75,7 +75,12 @@ function App() {
     }
   }
 
-  const serviceList = ['apache', 'nginx', 'mysql', 'postgresql', 'mailpit']
+  const serviceList = [
+    'apache', 'nginx', 'caddy',
+    'mysql', 'postgresql', 'mongodb',
+    'meilisearch',
+    'mailpit',
+  ]
 
   function renderMainContent() {
     switch (activeNav) {

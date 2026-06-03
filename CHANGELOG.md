@@ -6,7 +6,56 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added — v1.2 "Beyond PHP" track
+
+- **Headless CLI mode** — `hangar.exe start mysql`, `hangar status`,
+  `hangar list projects`, etc. work in any terminal without the GUI
+  open. Subcommands: `start`, `stop`, `restart`, `status`, `list`,
+  `services`, `version`, `daemon`. Aliases: `pg` → `postgresql`,
+  `mongo` → `mongodb`, `meili` → `meilisearch`.
+- **Daemon mode** — `hangar daemon` keeps the MCP server on
+  127.0.0.1:3742 reachable and a tray icon visible without opening
+  the GUI window. AI agents stay connected across reboots.
+- **Shared `app/core` package** — same bootstrap wiring backs the
+  GUI, CLI, and daemon. No more "MCP only works when the GUI is
+  open."
+- **3 new services** — MongoDB 8.0, Meilisearch 1.45, Caddy 2.11.
+  Full Start/Stop/Restart/Logs lifecycle. Meilisearch ships with a
+  local-dev master key; users override for non-dev use.
+- **11 new packages** in the registry:
+  - **Node.js**: nvm-windows 1.2.2, fnm 1.39.0, Bun 1.3.14
+  - **Python**: Astral uv 0.11.18
+  - **PHP tools**: Adminer 5.4.2, WP-CLI 2.12.0, Symfony CLI 5.17.1
+  - **Cloud / tools**: GitHub CLI 2.93.0, Cloudflared 2026.5.2,
+    Supabase CLI 2.104.0, Fly.io flyctl 0.4.57
+- **New package categories**: `search`, `python`, `cloud`. Existing
+  `nodejs` and `tools` get more populated.
+- **Installed page**: groups the new categories and rows for every
+  new tool with the right launch behaviour (service vs CLI).
+
+### Deferred — not shipped in v1.2, planned for v1.3 or v1.4
+
+- **Microsoft Garnet (Redis-protocol)** — package zip extracts with
+  the executable under `net8.0/`, and the framework-dependent build
+  requires .NET 8 runtime. Hangar has no prereq layer yet to pull
+  in .NET 8 automatically. Once we add prereq handling Garnet ships
+  in v1.3.
+- **MinIO** — latest stable has a CVE; the version one release back
+  does not yet have a Windows binary published. Waiting on upstream
+  to publish a clean Windows release.
+- **Typesense** — vendor does not publish a Windows native binary;
+  Windows path is Docker-only. Out of scope until WSL bundling.
+- **AWS CLI, OpenSSL, Tailscale** — all MSI installers. Hangar's
+  package layer only handles `.zip`/`.tar.gz` extraction today.
+  Adding MSI install support is planned for v1.3.
+- **Laravel Installer, Cloudflare Wrangler, Vercel CLI, Netlify
+  CLI** — composer-global / npm-global installs. Need a new install
+  flow distinct from URL download. Planned for v1.4.
+
+### Fixed
+
+- `hangar.exe` no longer falls through to the GUI when given an
+  unknown CLI subcommand. Prints a clear error and exits 1.
 
 ## [1.0.0] — 2026-05-19
 
