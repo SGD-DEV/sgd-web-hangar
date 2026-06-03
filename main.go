@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"embed"
+	"os"
 
 	"github.com/devour-app/devour/app"
+	"github.com/devour-app/devour/app/cli"
 	"github.com/devour-app/devour/app/tray"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -17,6 +19,14 @@ import (
 var assets embed.FS
 
 func main() {
+	// CLI / daemon dispatch. If the user typed `hangar start mysql` or
+	// `hangar daemon`, route to the cobra-powered CLI and exit before
+	// Wails ever sees the args. No-args (typical double-click or plain
+	// `hangar`) falls through to the GUI path below.
+	if cli.IsCLIInvocation(os.Args[1:]) {
+		os.Exit(cli.Run(os.Args[1:]))
+	}
+
 	devourApp := app.NewApp()
 
 	// ctxCh hands the Wails context to the tray goroutine once Startup runs.

@@ -10,23 +10,19 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/devour-app/devour/app/bootstrap"
 	"github.com/devour-app/devour/app/config"
+	"github.com/devour-app/devour/app/core"
 	"github.com/devour-app/devour/app/dbinspect"
 	"github.com/devour-app/devour/app/dns"
 	"github.com/devour-app/devour/app/heidisql"
 	"github.com/devour-app/devour/app/logs"
-	"github.com/devour-app/devour/app/bootstrap"
 	"github.com/devour-app/devour/app/mcp"
 	"github.com/devour-app/devour/app/packages"
 	"github.com/devour-app/devour/app/php"
 	"github.com/devour-app/devour/app/portinfo"
 	"github.com/devour-app/devour/app/projects"
 	"github.com/devour-app/devour/app/services"
-	"github.com/devour-app/devour/app/services/apache"
-	"github.com/devour-app/devour/app/services/mailpit"
-	"github.com/devour-app/devour/app/services/mysql"
-	"github.com/devour-app/devour/app/services/nginx"
-	"github.com/devour-app/devour/app/services/postgresql"
 	"github.com/devour-app/devour/app/ssl"
 	"github.com/devour-app/devour/app/syspath"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -69,140 +65,58 @@ func NewApp() *App {
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 
-	paths := config.NewPlatformPaths()
-	a.paths = paths
-
-	if err := paths.EnsureDirectories(); err != nil {
-		runtime.LogErrorf(ctx, "devour: ensuring directories: %v", err)
+	// Delegate to the shared core. The Wails-specific bits stay here:
+	// ctx, EventsEmit-backed package emitter, startupErr translation,
+	// and the runtime.LogXxx hookup. The actual wiring of managers
+	// lives in app/core so the CLI and daemon can reuse it.
+	emit := func(event string, data interface{}) {
+		if a.ctx != nil {
+			runtime.EventsEmit(a.ctx, event, data)
+		}
+	}
+	log := func(level core.Level, format string, args ...interface{}) {
+		switch level {
+		case core.LevelError:
+			runtime.LogErrorf(ctx, "devour: "+format, args...)
+		case core.LevelWarn:
+			runtime.LogWarningf(ctx, "devour: "+format, args...)
+		default:
+			runtime.LogInfof(ctx, "devour: "+format, args...)
+		}
 	}
 
-	// Initialize the path manager FIRST. It only needs `paths` (no DB), and
-	// the System PATH page is one of the first things a user might click on
-	// a fresh install when nothing else is set up. Putting this before the
-	// possibly-failing NewStore call means the page works even if the rest
-	// of Startup aborts.
-	a.pathManager = syspath.New(paths)
-
-	store, err := config.NewStore(paths.DBPath())
+	c, err := core.Bootstrap(core.DefaultGUIOptions(emit), log)
 	if err != nil {
-		runtime.LogErrorf(ctx, "devour: opening config store: %v", err)
-		// Most-likely cause on Windows is another Hangar process still
-		// holding the bbolt flock (it minimised to tray instead of
-		// exiting). Translate the raw bbolt error into something the
-		// UI can show the user.
-		msg := err.Error()
-		lower := strings.ToLower(msg)
-		if strings.Contains(lower, "lock") || strings.Contains(lower, "being used") || strings.Contains(lower, "another process") {
+		runtime.LogErrorf(ctx, "devour: bootstrap: %v", err)
+		if _, ok := err.(core.ErrAlreadyRunning); ok {
 			a.startupErr = "Hangar is already running. Check the system tray (look for the Hangar icon near the clock) and use Quit from its menu, or close it from Task Manager, then try again."
 		} else {
-			a.startupErr = "Hangar failed to start: " + msg
+			a.startupErr = "Hangar failed to start: " + err.Error()
 		}
 		return
 	}
-	a.config = store
 
-	a.logStore = logs.NewStore(1000)
+	// Copy managers into the App fields so the existing 1000+ lines of
+	// Wails methods bound to *App keep working unchanged. Treat this
+	// as a view onto Core, not a separate ownership.
+	a.paths = c.Paths
+	a.config = c.Config
+	a.logStore = c.Logs
+	a.pathManager = c.PathManager
+	a.serviceManager = c.ServiceManager
+	a.phpManager = c.PHPManager
+	a.projectManager = c.ProjectManager
+	a.sslManager = c.SSLManager
+	a.dnsServer = c.DNSServer
+	a.mcpServer = c.MCPServer
+	a.pkgManager = c.PackageManager
+	a.bootstrapMgr = c.BootstrapMgr
 
-	a.serviceManager = services.NewManager()
-
-	apacheSvc := apache.New(paths, store, a.logStore)
-	nginxSvc := nginx.New(paths, store, a.logStore)
-	mysqlSvc := mysql.New(paths, store, a.logStore)
-	pgSvc := postgresql.New(paths, store, a.logStore)
-	mailpitSvc := mailpit.New(paths, store, a.logStore)
-
-	a.serviceManager.Register("apache", apacheSvc)
-	a.serviceManager.Register("nginx", nginxSvc)
-	a.serviceManager.Register("mysql", mysqlSvc)
-	a.serviceManager.Register("postgresql", pgSvc)
-	a.serviceManager.Register("mailpit", mailpitSvc)
-
-	a.phpManager = php.NewManager(paths, store)
-	a.projectManager = projects.NewManager(paths, store, a.serviceManager)
-	a.sslManager = ssl.NewManager(paths, store)
-	a.projectManager.SetSSLGenerator(projects.NewSSLAdapter(a.sslManager))
-	a.dnsServer = dns.NewServer(store)
-	a.mcpServer = mcp.NewServer(a.serviceManager, a.phpManager, a.projectManager, a.logStore, a.config, paths)
-
-	a.pkgManager = packages.NewManager(paths, store, func(event string, data interface{}) {
-		if a.ctx != nil {
-			runtime.EventsEmit(a.ctx, event, data)
-		}
-	})
-
-	// Bootstrap manager drives the first-run wizard. Reuses pkgManager for
-	// downloads but adds the "default bundle" concept (PHP + MySQL + ...).
-	a.bootstrapMgr = bootstrap.NewManager(paths, a.pkgManager, func(event string, data interface{}) {
-		if a.ctx != nil {
-			runtime.EventsEmit(a.ctx, event, data)
-		}
-	})
-
-	// Ensure projects root and active PHP are set in config
-	if appCfg, err := store.GetAppConfig(); err == nil {
-		changed := false
-		// Always sync ProjectsRoot to the exe-relative path.
-		// This ensures moving the app folder (or running from a new location) works.
-		correctRoot := paths.ProjectsPath()
-		if appCfg.ProjectsRoot != correctRoot {
-			appCfg.ProjectsRoot = correctRoot
-			changed = true
-		}
-		// Auto-detect active PHP if not set
-		if appCfg.ActivePHP == "" {
-			if versions := a.phpManager.ListInstalled(); len(versions) > 0 {
-				appCfg.ActivePHP = versions[0].Version
-				changed = true
-			}
-		}
-		if changed {
-			store.SaveAppConfig(appCfg)
-		}
-	}
-
-	// Auto-scan for projects so existing folders appear immediately
-	if a.projectManager != nil {
-		a.projectManager.Scan()
-	}
-
-	// Pre-generate service config files so config editor can read them
-	a.ensureServiceConfigs()
-
-	// Ensure php.ini exists for all installed PHP versions
+	// php.ini is GUI-specific - it depends on Wails being live to push
+	// events, and CLI/daemon don't need it pre-warmed for short runs.
 	a.ensurePHPIni()
 
-	// Auto-start the MCP server. Without this nothing binds 127.0.0.1:3742,
-	// and clients (Claude Code / Cursor / Windsurf) get connection-refused
-	// errors on the SSE endpoint. The Wails StartMCP method exists and
-	// works, but no UI code was calling it - the server stayed dormant.
-	// Failure here is non-fatal: log it but let the app keep running, the
-	// user can flip the MCP toggle in Settings (or restart) to retry.
-	if a.mcpServer != nil {
-		if err := a.mcpServer.Start(); err != nil {
-			runtime.LogWarningf(ctx, "devour: MCP server failed to auto-start: %v (try toggling it in Settings)", err)
-		} else {
-			runtime.LogInfof(ctx, "devour: MCP server listening on :3742")
-		}
-	}
-
 	runtime.LogInfo(ctx, "devour: startup complete")
-}
-
-// ensureServiceConfigs pre-creates MySQL/PostgreSQL config files if they don't exist
-// so the config editor doesn't show "file not found" errors.
-func (a *App) ensureServiceConfigs() {
-	// MySQL: generate my.ini if MySQL is installed
-	mysqlIniPath := filepath.Join(a.paths.ConfPath("mysql"), "my.ini")
-	if _, err := os.Stat(mysqlIniPath); os.IsNotExist(err) {
-		if svc, err := a.serviceManager.Get("mysql"); err == nil {
-			type mysqlConfigGenerator interface {
-				EnsureConfig() error
-			}
-			if gen, ok := svc.(mysqlConfigGenerator); ok {
-				gen.EnsureConfig()
-			}
-		}
-	}
 }
 
 // HasRunningServices reports whether at least one registered service is
