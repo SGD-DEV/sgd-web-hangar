@@ -160,11 +160,165 @@ var unboundedHints = []string{
 var nounIDPattern = regexp.MustCompile(`^(\w+)_(id|uuid|code)$`)
 var typeLengthPattern = regexp.MustCompile(`\((\d+)\)`)
 
+// Dialect controls the SQL dialect Audit emits in FixSQL. Each rule
+// that produces DDL/DML routes through the helpers below so MySQL
+// users get runnable MySQL, Postgres users get runnable Postgres.
+//
+// We do not try to cover every SQL engine - just the two Hangar
+// supports (MySQL + MariaDB share dialect, PostgreSQL is its own).
+type Dialect string
+
+const (
+	DialectPostgres Dialect = "postgres"
+	DialectMySQL    Dialect = "mysql"
+)
+
+// dialectFromDBType maps the user-facing db_type string to the
+// internal Dialect. Anything we don't recognise falls back to
+// Postgres because that's our better-tested path; callers can
+// override.
+func dialectFromDBType(dbType string) Dialect {
+	switch strings.ToLower(dbType) {
+	case "mysql", "mariadb":
+		return DialectMySQL
+	default:
+		return DialectPostgres
+	}
+}
+
+// --- DDL helpers ---
+//
+// Each helper takes the dialect and returns runnable SQL. Kept on
+// the helper layer so the rule bodies above stay readable and the
+// per-dialect quirks live in one place.
+
+func ddlAddSurrogateID(d Dialect, table string) string {
+	switch d {
+	case DialectMySQL:
+		return fmt.Sprintf("ALTER TABLE %s ADD COLUMN id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY;", table)
+	default:
+		return fmt.Sprintf("ALTER TABLE %s ADD COLUMN id BIGSERIAL PRIMARY KEY;", table)
+	}
+}
+
+func ddlMoneyDecimal(d Dialect, table, col string) string {
+	switch d {
+	case DialectMySQL:
+		return fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s DECIMAL(14,2);", table, col)
+	default:
+		return fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE NUMERIC(14,2) USING %s::numeric(14,2);", table, col, col)
+	}
+}
+
+func commentTimeColumnMigration(d Dialect) string {
+	switch d {
+	case DialectMySQL:
+		return "-- migration: add new DATETIME(6) column, parse and copy, drop old, rename"
+	default:
+		return "-- migration: add new TIMESTAMPTZ column, parse and copy, drop old, rename"
+	}
+}
+
+func ddlMakeTimestampTZAware(d Dialect, table, col string) string {
+	switch d {
+	case DialectMySQL:
+		// MySQL TIMESTAMP is already TZ-aware (stores UTC, converts on
+		// read), but DATETIME isn't. Convert DATETIME -> TIMESTAMP, or
+		// keep DATETIME with explicit app-side UTC normalisation. We
+		// recommend the explicit DATETIME(6) route because TIMESTAMP
+		// has the 2038 problem.
+		return fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s DATETIME(6) NOT NULL;  -- store UTC explicitly in app layer", table, col)
+	default:
+		return fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE TIMESTAMPTZ USING %s AT TIME ZONE 'UTC';", table, col, col)
+	}
+}
+
+func descTimestampTZAdvice(d Dialect, col string) string {
+	switch d {
+	case DialectMySQL:
+		return fmt.Sprintf("'%s' uses DATETIME without UTC normalisation. In a multi-tenant SaaS store explicit UTC (DATETIME(6) NOT NULL) and convert in the app layer; or use TIMESTAMP if you can accept the 2038 limit.", col)
+	default:
+		return fmt.Sprintf("'%s' uses TIMESTAMP WITHOUT TIME ZONE - in a multi-tenant SaaS use TIMESTAMPTZ to avoid silent UTC/local drift", col)
+	}
+}
+
+func ddlToBigInt(d Dialect, table, col string) string {
+	switch d {
+	case DialectMySQL:
+		return fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s BIGINT;  -- locks table briefly", table, col)
+	default:
+		return fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE BIGINT;  -- locks table briefly", table, col)
+	}
+}
+
+func ddlPhoneToVarchar(d Dialect, table, col string) string {
+	switch d {
+	case DialectMySQL:
+		return fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s VARCHAR(20);", table, col)
+	default:
+		return fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE VARCHAR(20) USING %s::text;", table, col, col)
+	}
+}
+
+func ddlToBoolean(d Dialect, table, col string) string {
+	switch d {
+	case DialectMySQL:
+		return fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s TINYINT(1) NOT NULL DEFAULT 0;  -- MySQL boolean = TINYINT(1)", table, col)
+	default:
+		return fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE BOOLEAN USING (%s IN ('true','t','1','y','yes'));", table, col, col)
+	}
+}
+
+func ddlShortenCode(d Dialect, table, col string) string {
+	switch d {
+	case DialectMySQL:
+		return fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s VARCHAR(8);", table, col)
+	default:
+		return fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE VARCHAR(8);", table, col)
+	}
+}
+
+func commentSecretEncryption(d Dialect) string {
+	switch d {
+	case DialectMySQL:
+		return "-- if plaintext: hash via app layer; for reversible secrets use AES_ENCRYPT() with a KMS-managed key (mysql has no pgcrypto equivalent)"
+	default:
+		return "-- if plaintext: hash via app layer; for reversible secrets use pgcrypto column-level encryption"
+	}
+}
+
+func commentPIIEncryption(d Dialect) string {
+	switch d {
+	case DialectMySQL:
+		return "-- MySQL: ALTER TABLE ... MODIFY COLUMN ... VARBINARY(255) and AES_ENCRYPT via a column-level KMS-derived key"
+	default:
+		return "-- pgcrypto: ALTER TABLE ... ALTER COLUMN ... TYPE BYTEA USING pgp_sym_encrypt(...)"
+	}
+}
+
+func ddlAddCreatedAt(d Dialect, table string) string {
+	switch d {
+	case DialectMySQL:
+		return fmt.Sprintf("ALTER TABLE %s ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;", table)
+	default:
+		return fmt.Sprintf("ALTER TABLE %s ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();", table)
+	}
+}
+
 // Audit runs the full rule set over schema and returns the findings in
-// declared rule order. Caller can sort by severity via SortFindings.
-func Audit(schema *Schema) []Finding {
+// declared rule order. The dialect controls SQL syntax in FixSQL fields
+// so MySQL users get runnable MySQL and Postgres users get runnable
+// Postgres. Caller can sort by severity via SortFindings.
+//
+// Schema-level rules (orphan FKs, missing indexes, plaintext secrets)
+// are dialect-agnostic - they fire identically on either engine.
+// Only the suggested fix DDL changes.
+func Audit(schema *Schema, dialect Dialect) []Finding {
 	if schema == nil {
 		return nil
+	}
+	if dialect == "" {
+		dialect = dialectFromDBType(schema.DBType)
 	}
 
 	// Pre-build lookup tables once; rules below read them many times.
@@ -219,7 +373,7 @@ func Audit(schema *Schema) []Finding {
 		if len(t.PrimaryKey) == 0 {
 			add(SevHigh, "Schema Integrity", t.Name, "",
 				"No primary key declared",
-				fmt.Sprintf("ALTER TABLE %s ADD COLUMN id BIGSERIAL PRIMARY KEY;", t.Name))
+				ddlAddSurrogateID(dialect, t.Name))
 		}
 	}
 
@@ -364,8 +518,7 @@ func Audit(schema *Schema) []Finding {
 				case "real", "double precision", "float", "float4", "float8":
 					add(SevCritical, "Data Type", t.Name, c.Name,
 						fmt.Sprintf("Money-like column stored as %s - precision loss for currency", c.Type),
-						fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE NUMERIC(14,2) USING %s::numeric(14,2);",
-							t.Name, c.Name, c.Name))
+						ddlMoneyDecimal(dialect, t.Name, c.Name))
 				}
 			}
 
@@ -383,18 +536,26 @@ func Audit(schema *Schema) []Finding {
 				if strings.HasPrefix(ctype, "character") || ctype == "text" || ctype == "integer" || ctype == "bigint" {
 					add(SevCritical, "Data Type", t.Name, c.Name,
 						fmt.Sprintf("Time-looking column '%s' stored as %s - lose timezone awareness, can't index by date range", c.Name, c.Type),
-						"-- migration: add new TIMESTAMPTZ column, parse and copy, drop old, rename")
+						commentTimeColumnMigration(dialect))
 				}
 			}
 
 			// Timestamp w/o tz on common time columns
 			switch cn {
 			case "created_at", "updated_at", "last_login", "expires_at", "deleted_at":
-				if ctype == "timestamp without time zone" {
+				// PG: TIMESTAMP WITHOUT TIME ZONE is the warning shape.
+				// MySQL: DATETIME without explicit UTC handling is the
+				// equivalent gotcha; we flag it the same way.
+				flag := false
+				if dialect == DialectMySQL {
+					flag = ctype == "datetime" || strings.HasPrefix(ctype, "datetime(")
+				} else {
+					flag = ctype == "timestamp without time zone"
+				}
+				if flag {
 					add(SevHigh, "Data Type", t.Name, c.Name,
-						fmt.Sprintf("'%s' uses TIMESTAMP WITHOUT TIME ZONE - in a multi-tenant SaaS use TIMESTAMPTZ to avoid silent UTC/local drift", c.Name),
-						fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE TIMESTAMPTZ USING %s AT TIME ZONE 'UTC';",
-							t.Name, c.Name, c.Name))
+						descTimestampTZAdvice(dialect, c.Name),
+						ddlMakeTimestampTZAware(dialect, t.Name, c.Name))
 				}
 			}
 
@@ -404,8 +565,7 @@ func Audit(schema *Schema) []Finding {
 					if strings.Contains(t.Name, h) {
 						add(SevHigh, "Data Type", t.Name, c.Name,
 							"INTEGER (max ~2.1B) on a table that grows quickly",
-							fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE BIGINT;  -- locks table briefly",
-								t.Name, c.Name))
+							ddlToBigInt(dialect, t.Name, c.Name))
 						break
 					}
 				}
@@ -417,8 +577,7 @@ func Audit(schema *Schema) []Finding {
 				if ctype == "integer" || ctype == "bigint" {
 					add(SevHigh, "Data Type", t.Name, c.Name,
 						fmt.Sprintf("Phone number stored as %s - loses leading zeros, +, formatting", c.Type),
-						fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE VARCHAR(20) USING %s::text;",
-							t.Name, c.Name, c.Name))
+						ddlPhoneToVarchar(dialect, t.Name, c.Name))
 				}
 			}
 
@@ -428,8 +587,7 @@ func Audit(schema *Schema) []Finding {
 					strings.HasPrefix(cn, "can_") || strings.HasPrefix(cn, "should_") {
 					add(SevMedium, "Data Type", t.Name, c.Name,
 						fmt.Sprintf("Boolean-looking column '%s' stored as %s", c.Name, c.Type),
-						fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE BOOLEAN USING (%s IN ('true','t','1','y','yes'));",
-							t.Name, c.Name, c.Name))
+						ddlToBoolean(dialect, t.Name, c.Name))
 				}
 			}
 
@@ -442,7 +600,7 @@ func Audit(schema *Schema) []Finding {
 					if n > 16 {
 						add(SevLow, "Data Type", t.Name, c.Name,
 							fmt.Sprintf("Code column '%s' is %s - oversized for ISO codes", c.Name, c.Type),
-							fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s TYPE VARCHAR(8);", t.Name, c.Name))
+							ddlShortenCode(dialect, t.Name, c.Name))
 					}
 				}
 			}
@@ -481,7 +639,7 @@ func Audit(schema *Schema) []Finding {
 						desc += " (length<60: too short for bcrypt/argon2)"
 					}
 					add(SevCritical, "Security", t.Name, c.Name, desc,
-						"-- if plaintext: hash via app layer; for reversible secrets use pgcrypto column-level encryption")
+						commentSecretEncryption(dialect))
 				}
 			}
 
@@ -511,7 +669,7 @@ func Audit(schema *Schema) []Finding {
 				if h == cn || containsToken(cn, h) {
 					add(SevHigh, "Security", t.Name, c.Name,
 						fmt.Sprintf("PII column '%s' - confirm encryption-at-rest or tokenization (GDPR/CCPA)", c.Name),
-						"-- pgcrypto: ALTER TABLE ... ALTER COLUMN ... TYPE BYTEA USING pgp_sym_encrypt(...)")
+						commentPIIEncryption(dialect))
 					break
 				}
 			}
@@ -636,7 +794,7 @@ func Audit(schema *Schema) []Finding {
 		if !cols["created_at"] && !cols["created"] && !cols["date_created"] {
 			add(SevLow, "Operational", t.Name, "",
 				"No created_at column - timestamps essential for debugging, sorting, sync",
-				fmt.Sprintf("ALTER TABLE %s ADD COLUMN created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();", t.Name))
+				ddlAddCreatedAt(dialect, t.Name))
 		}
 	}
 
@@ -874,9 +1032,9 @@ func WriteFixesSQL(schema *Schema, findings []Finding, outputDir string) (string
 
 // AuditAndWrite is the convenience entry point used by the MCP tool: run
 // the rules, write the SQL file, return everything the caller needs in
-// one call.
-func AuditAndWrite(schema *Schema, outputDir string) (path string, findings []Finding, summary AuditSummary, err error) {
-	findings = Audit(schema)
+// one call. Empty dialect auto-detects from schema.DBType.
+func AuditAndWrite(schema *Schema, dialect Dialect, outputDir string) (path string, findings []Finding, summary AuditSummary, err error) {
+	findings = Audit(schema, dialect)
 	SortFindings(findings)
 	summary = summarize(findings)
 	path, err = WriteFixesSQL(schema, findings, outputDir)

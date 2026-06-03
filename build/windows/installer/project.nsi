@@ -56,32 +56,36 @@ ManifestDPIAware true
 !define MUI_FINISHPAGE_NOAUTOCLOSE # Wait on the INSTFILES page so the user can take a look into the details of the installation steps
 !define MUI_ABORTWARNING # This will warn the user if they exit from the installer.
 
-# Finish page: launch Devour by default, plus an optional checkbox that opens
-# the Start Menu folder so the user can right-click and pick "Pin to Start" or
-# "Pin to taskbar". Windows 10/11 removed the API that lets installers pin
-# programmatically (anti-malware-installer measure), so opening the folder is
-# the closest UX to "auto-pin".
+# Finish page two checkboxes:
+#   1. Launch Hangar now (default checked, runs the GUI)
+#   2. Start Hangar at Windows login (default checked, writes the HKCU Run key
+#      so the daemon launches headless next time Windows boots - keeps the
+#      MCP server reachable for AI agents)
+#
+# We retired the "show me where to pin" checkbox because autostart is the
+# more valuable hidden feature for our target audience (developers + AI
+# integrators). Users who want to pin can still right-click the Start Menu
+# entry manually.
 #
 # IMPORTANT - launching unelevated:
 # This installer runs as Administrator (we install to Program Files). If we
-# launch devour.exe via the default MUI_FINISHPAGE_RUN it inherits the
+# launch hangar.exe via the default MUI_FINISHPAGE_RUN it inherits the
 # installer's admin token, and stays elevated for its whole lifetime. That
 # breaks PostgreSQL init - postgres.exe refuses to run with an Admin token,
 # and the workaround (CreateRestrictedToken) hits a Windows DLL-init failure
 # (0xc0000142) because of window-station ACL evaluation under restricted
-# tokens. The cleanest fix is "don't elevate Devour in the first place".
+# tokens. The cleanest fix is "don't elevate Hangar in the first place".
 #
 # Solution: launch via explorer.exe. The shell process always runs as the
-# logged-in user (medium integrity, no admin), so it forks devour.exe at
+# logged-in user (medium integrity, no admin), so it forks hangar.exe at
 # user level even when the installer that invoked it is elevated.
 # Reference: https://stackoverflow.com/q/9001638/ (UAC stripping via shell).
 !define MUI_FINISHPAGE_RUN
-!define MUI_FINISHPAGE_RUN_FUNCTION LaunchDevourUnelevated
-!define MUI_FINISHPAGE_RUN_TEXT "Launch Devour now"
+!define MUI_FINISHPAGE_RUN_FUNCTION LaunchHangarUnelevated
+!define MUI_FINISHPAGE_RUN_TEXT "Launch Hangar now"
 !define MUI_FINISHPAGE_SHOWREADME ""
-!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
-!define MUI_FINISHPAGE_SHOWREADME_TEXT "Show me where to pin Devour to Start / Taskbar"
-!define MUI_FINISHPAGE_SHOWREADME_FUNCTION OpenStartMenuFolder
+!define MUI_FINISHPAGE_SHOWREADME_TEXT "Start Hangar at login (recommended for AI integration)"
+!define MUI_FINISHPAGE_SHOWREADME_FUNCTION EnableHangarAutostart
 
 !insertmacro MUI_PAGE_WELCOME # Welcome to the installer page.
 # !insertmacro MUI_PAGE_LICENSE "resources\eula.txt" # Adds a EULA page to the installer
@@ -89,14 +93,19 @@ ManifestDPIAware true
 !insertmacro MUI_PAGE_INSTFILES # Installing page.
 !insertmacro MUI_PAGE_FINISH # Finished installation page.
 
-Function LaunchDevourUnelevated
+Function LaunchHangarUnelevated
   # Exec'ing explorer.exe with the path to our exe drops the elevated token -
   # explorer is the shell, which runs at the user's medium integrity level.
   Exec '"$WINDIR\explorer.exe" "$INSTDIR\${PRODUCT_EXECUTABLE}"'
 FunctionEnd
 
-Function OpenStartMenuFolder
-  ExecShell "open" "$SMPROGRAMS"
+Function EnableHangarAutostart
+  # Per-user autostart. Same registry key the CLI subcommand
+  # `hangar daemon autostart enable` writes - we duplicate it here so
+  # the user can opt in from the installer without ever opening a
+  # terminal. The value is the daemon entrypoint, NOT the GUI exe,
+  # so the system tray comes up at login without flashing a window.
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Hangar" '"$INSTDIR\${PRODUCT_EXECUTABLE}" daemon'
 FunctionEnd
 
 !insertmacro MUI_UNPAGE_INSTFILES # Uinstalling page
@@ -136,6 +145,10 @@ SectionEnd
 
 Section "uninstall"
     !insertmacro wails.setShellContext
+
+    # Remove the autostart Run entry if the user set it. Idempotent -
+    # DeleteRegValue is a no-op when the value does not exist.
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Hangar"
 
     RMDir /r "$AppData\${PRODUCT_EXECUTABLE}" # Remove the WebView2 DataPath
 

@@ -391,11 +391,15 @@ func newDaemonCmd() *cobra.Command {
 			"reachable at http://127.0.0.1:3742/sse so AI agents (Claude Code,\n" +
 			"Cursor, Windsurf) can manage services even when the GUI is closed.\n" +
 			"A system-tray icon appears in the notification area; right-click it\n" +
-			"to open the GUI, stop services, or quit.",
+			"to open the GUI, stop services, or quit.\n\n" +
+			"Use `hangar daemon autostart enable` to launch the daemon at every\n" +
+			"Windows login. That gives you the same behaviour as Laragon's\n" +
+			"\"Auto Start with Windows\" without the visible main window.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return RunDaemon()
 		},
 	}
+	cmd.AddCommand(newAutostartCmd())
 	return cmd
 }
 

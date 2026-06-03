@@ -513,7 +513,9 @@ func (s *Server) toolInspectDatabase(args json.RawMessage) (interface{}, *RPCErr
 		outputDir = filepath.Join(os.TempDir(), "hangar-audits")
 	}
 
-	sqlPath, findings, summary, err := dbinspect.AuditAndWrite(schema, outputDir)
+	// Empty dialect = auto-detect from db_type. AuditAndWrite reads
+	// schema.DBType which dbinspect.Inspect just populated.
+	sqlPath, findings, summary, err := dbinspect.AuditAndWrite(schema, "", outputDir)
 	if err != nil {
 		return toolError(err.Error()), nil
 	}

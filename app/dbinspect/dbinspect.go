@@ -351,7 +351,8 @@ func BuildAuditPrompt(schema *Schema, projectContext string) string {
 	// Run the rule engine inline so legacy callers still get a useful
 	// answer even if they haven't migrated to BuildAuditSummaryPrompt.
 	// No SQL file is written here - that's the MCP tool's responsibility.
-	findings := Audit(schema)
+	// Empty dialect = auto-detect from schema.DBType.
+	findings := Audit(schema, "")
 	return BuildAuditSummaryPrompt(schema, summarize(findings), "(no SQL file - call inspect_database via MCP for that)", projectContext)
 }
 
