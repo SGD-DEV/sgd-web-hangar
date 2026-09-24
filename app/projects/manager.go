@@ -134,6 +134,11 @@ func (m *Manager) CreateWithOptions(opts CreateOptions) (Project, error) {
 		if err := os.MkdirAll(path, 0755); err != nil {
 			return Project{}, fmt.Errorf("projects: creating directory %s: %w", path, err)
 		}
+		// An empty plain-PHP project would answer "404 Not Found", which
+		// looks broken. Give it a start page the user can replace.
+		if opts.Framework == string(FrameworkPlainPHP) && !isDirNonEmpty(path) {
+			_ = WriteStarterPage(path, name, domain)
+		}
 	}
 
 	var framework Framework
