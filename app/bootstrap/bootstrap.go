@@ -52,7 +52,7 @@ type BundleStatus struct {
 func DefaultBundle() []BundleItem {
 	return []BundleItem{
 		{Name: "php", Version: "8.3", Label: "PHP 8.3 (recommended)", Required: true},
-		{Name: "apache", Version: "2.4.65", Label: "Apache 2.4.65", Required: true},
+		{Name: "apache", Version: "2.4.68", Label: "Apache 2.4.68", Required: true},
 		{Name: "mysql", Version: "8.4", Label: "MySQL 8.4 LTS", Required: true},
 		{Name: "nginx", Version: "1.29.1", Label: "Nginx 1.29.1", Required: false},
 		{Name: "postgresql", Version: "18.3", Label: "PostgreSQL 18.3", Required: false},

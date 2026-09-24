@@ -37,7 +37,7 @@ func AllPackages() []PackageEntry {
 		{Name: "php", Label: "PHP 7.3", Version: "7.3", URL: "https://windows.php.net/downloads/releases/archives/php-7.3.33-nts-Win32-VC15-x64.zip", Category: CategoryPHP, SubDir: "php/7.3"},
 
 		// Web Servers
-		{Name: "apache", Label: "Apache 2.4.65", Version: "2.4.65", URL: "https://www.apachelounge.com/download/VS17/binaries/httpd-2.4.65-250724-Win64-VS17.zip", Category: CategoryWebServer, SubDir: "apache/2.4.65"},
+		{Name: "apache", Label: "Apache 2.4.68", Version: "2.4.68", URL: "https://www.apachelounge.com/download/VS18/binaries/httpd-2.4.68-260920-Win64-VS18.zip", Category: CategoryWebServer, SubDir: "apache/2.4.68"},
 		{Name: "apache", Label: "Apache 2.4.57", Version: "2.4.57", URL: "https://www.apachelounge.com/download/VS16/binaries/httpd-2.4.57-win64-VS16.zip", Category: CategoryWebServer, SubDir: "apache/2.4.57"},
 		{Name: "nginx", Label: "Nginx 1.29.1", Version: "1.29.1", URL: "https://nginx.org/download/nginx-1.29.1.zip", Category: CategoryWebServer, SubDir: "nginx/1.29.1"},
 
