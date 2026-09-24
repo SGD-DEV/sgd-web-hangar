@@ -16,8 +16,11 @@ import DevourTerminal from './components/terminal/Terminal'
 import DatabasesPage from './components/databases/DatabasesPage'
 import SystemPathManager from './components/syspath/SystemPathManager'
 import WelcomeWizard from './components/onboarding/WelcomeWizard'
+import TunnelPage from './components/tunnel/TunnelPage'
+import WebServerSwitch from './components/dashboard/WebServerSwitch'
+import Toaster from './components/ui/Toaster'
 
-export type NavItem = 'servers' | 'packages' | 'installed' | 'php' | 'projects' | 'ssl' | 'databases' | 'terminal' | 'syspath' | 'settings'
+export type NavItem = 'servers' | 'packages' | 'installed' | 'php' | 'projects' | 'tunnel' | 'ssl' | 'databases' | 'terminal' | 'syspath' | 'settings'
 export type DetailTab = 'overview' | 'config' | 'logs'
 
 interface ServiceStatus {
@@ -90,6 +93,7 @@ function App() {
             {/* Center: Service List */}
             <div className="w-80 border-r border-border flex-shrink-0 overflow-y-auto">
               <div className="p-4">
+                <WebServerSwitch statuses={services} />
                 <h2 className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">Services</h2>
                 <div className="space-y-1">
                   {serviceList.map(name => (
@@ -144,6 +148,9 @@ function App() {
 
       case 'projects':
         return <ProjectList />
+
+      case 'tunnel':
+        return <TunnelPage />
 
       case 'ssl':
         return <SSLManager />
@@ -221,6 +228,8 @@ function App() {
       {firstRunChecked && showWizard && (
         <WelcomeWizard onComplete={() => setShowWizard(false)} />
       )}
+
+      <Toaster />
     </div>
   )
 }

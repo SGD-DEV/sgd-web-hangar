@@ -92,6 +92,9 @@ func (a *App) autostartServices() {
 			return !isWebServer(order[i]) && isWebServer(order[j])
 		})
 		for _, name := range order {
+			if !a.isInstalled(name) {
+				continue
+			}
 			if err := a.startServiceNow(name); err != nil {
 				a.logStore.AddWithLevel("hangar", fmt.Sprintf("Autostart %s failed: %v", name, err), "error")
 			} else {
@@ -143,6 +146,9 @@ func (a *App) watchdogTick() {
 		return
 	}
 	for _, name := range cfg.DesiredServices {
+		if !a.isInstalled(name) {
+			continue
+		}
 		st, err := a.serviceManager.Status(name)
 		if err != nil || st.Status != services.StatusStopped {
 			continue // running, starting, initializing or stopping
@@ -175,6 +181,11 @@ func (a *App) watchdogTick() {
 		watchdog.mu.Unlock()
 		a.emit("services:changed", nil)
 	}
+}
+
+func (a *App) isInstalled(name string) bool {
+	svc, err := a.serviceManager.Get(name)
+	return err == nil && svc.IsInstalled()
 }
 
 func (a *App) emit(event string, data interface{}) {

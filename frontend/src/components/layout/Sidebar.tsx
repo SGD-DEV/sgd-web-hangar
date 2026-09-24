@@ -1,4 +1,4 @@
-import { Server, Code2, FolderOpen, Shield, Database, Settings, Package, Terminal, Route, LayoutGrid } from 'lucide-react'
+import { Server, Code2, FolderOpen, Shield, Database, Settings, Package, Terminal, Route, LayoutGrid, Cloud } from 'lucide-react'
 import type { NavItem } from '../../App'
 
 interface SidebarProps {
@@ -12,8 +12,9 @@ const navItems: { id: NavItem; label: string; icon: typeof Server }[] = [
   { id: 'installed', label: 'Installed', icon: LayoutGrid },
   { id: 'php', label: 'PHP', icon: Code2 },
   { id: 'projects', label: 'Projects', icon: FolderOpen },
-  { id: 'ssl', label: 'SSL', icon: Shield },
   { id: 'databases', label: 'Databases', icon: Database },
+  { id: 'tunnel', label: 'Tunnel', icon: Cloud },
+  { id: 'ssl', label: 'SSL', icon: Shield },
   { id: 'terminal', label: 'Terminal', icon: Terminal },
   { id: 'syspath', label: 'PATH', icon: Route },
   { id: 'settings', label: 'Settings', icon: Settings },

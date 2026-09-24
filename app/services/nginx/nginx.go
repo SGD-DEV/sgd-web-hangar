@@ -213,6 +213,12 @@ func (n *Nginx) Status() services.ServiceStatus {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
+	if !n.Running {
+		if cfg, err := n.store.GetAppConfig(); err == nil && cfg.NginxPort > 0 {
+			n.ServicePort = cfg.NginxPort
+		}
+	}
+
 	status := services.StatusStopped
 	if n.StatusText != "" {
 		status = n.StatusText
@@ -269,8 +275,9 @@ func (n *Nginx) findNginx() (string, error) {
 	cfg, err := n.store.GetServiceConfig("nginx")
 	if err == nil && cfg.InstallPath != "" {
 		if found := n.findNginxIn(cfg.InstallPath); found != "" {
+			// The port comes from AppConfig.NginxPort (read in Start); the
+			// per-service record may still hold the old 8080 default.
 			n.version = cfg.Version
-			n.ServicePort = cfg.Port
 			return found, nil
 		}
 	}

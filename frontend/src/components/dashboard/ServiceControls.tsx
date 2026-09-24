@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Play, Square, RotateCcw, Loader2, Skull } from 'lucide-react'
+import { call, toast, errorMessage } from '../../lib/api'
 
 interface ServiceStatus {
   name: string
@@ -117,12 +118,13 @@ export default function ServiceControls({ serviceName, status }: ServiceControls
     setLocalPending('start')
     setActionError('')
     try {
-      // @ts-ignore
-      await window.go?.app?.App?.StartService?.(serviceName)
-    } catch (e: any) {
+      await call('StartService', serviceName)
+      toast.success(isWebServer ? `${label} is now serving all sites` : `${label} started`)
+    } catch (e) {
       // Surface the Go error message right next to the button so the user
       // doesn't have to dig into the Logs tab to figure out what went wrong.
-      setActionError(e?.message || String(e))
+      setActionError(errorMessage(e))
+      toast.error(`${label} did not start`, errorMessage(e))
       setLocalPending(null)
     }
   }
@@ -131,10 +133,11 @@ export default function ServiceControls({ serviceName, status }: ServiceControls
     setLocalPending('stop')
     setActionError('')
     try {
-      // @ts-ignore
-      await window.go?.app?.App?.StopService?.(serviceName)
-    } catch (e: any) {
-      setActionError(e?.message || String(e))
+      await call('StopService', serviceName)
+      toast.success(`${label} stopped`, isWebServer ? 'All sites are offline until a web server runs again.' : undefined)
+    } catch (e) {
+      setActionError(errorMessage(e))
+      toast.error(`Could not stop ${label}`, errorMessage(e))
       setLocalPending(null)
     }
   }
@@ -143,10 +146,11 @@ export default function ServiceControls({ serviceName, status }: ServiceControls
     setLocalPending('restart')
     setActionError('')
     try {
-      // @ts-ignore
-      await window.go?.app?.App?.RestartService?.(serviceName)
-    } catch (e: any) {
-      setActionError(e?.message || String(e))
+      await call('RestartService', serviceName)
+      toast.success(`${label} restarted`)
+    } catch (e) {
+      setActionError(errorMessage(e))
+      toast.error(`Could not restart ${label}`, errorMessage(e))
       setLocalPending(null)
     }
   }

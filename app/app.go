@@ -762,6 +762,22 @@ func (a *App) GetConfig() (config.AppConfig, error) {
 }
 
 func (a *App) UpdateConfig(cfg config.AppConfig) error {
+	// State Hangar manages itself must not be overwritten by a Settings
+	// page that was opened before a service was started or switched.
+	if cur, err := a.config.GetAppConfig(); err == nil {
+		cfg.DesiredServices = cur.DesiredServices
+		cfg.ActiveWebServer = cur.ActiveWebServer
+		cfg.SchemaVersion = cur.SchemaVersion
+		cfg.ActivePHP = cur.ActivePHP
+	}
+	if cfg.PHPWorkers < 1 || cfg.PHPWorkers > phpfcgi.MaxWorkers {
+		cfg.PHPWorkers = phpfcgi.DefaultWorkers
+	}
+	if cfg.ProjectsRoot != "" {
+		if info, err := os.Stat(cfg.ProjectsRoot); err != nil || !info.IsDir() {
+			return fmt.Errorf("projects root %s does not exist", cfg.ProjectsRoot)
+		}
+	}
 	return a.config.SaveAppConfig(cfg)
 }
 

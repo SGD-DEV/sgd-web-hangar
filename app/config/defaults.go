@@ -2,7 +2,7 @@ package config
 
 // CurrentSchemaVersion is bumped whenever core.Bootstrap needs to migrate an
 // existing config (see core.migrateConfig).
-const CurrentSchemaVersion = 1
+const CurrentSchemaVersion = 2
 
 func DefaultAppConfig() AppConfig {
 	return AppConfig{

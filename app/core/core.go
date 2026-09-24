@@ -332,8 +332,16 @@ func migrateConfig(cfg *config.AppConfig) bool {
 			cfg.TunnelServiceName = "Cloudflared"
 		}
 		// The setting existed but was never honoured; turn it on so a
-		// reboot brings running services back.
+		// reboot brings running services back. Seed the list with the
+		// usual stack (services that aren't installed are skipped at
+		// start); from now on it follows the user's Start/Stop clicks.
 		cfg.AutoStartAll = true
+	}
+	if cfg.SchemaVersion < 2 && len(cfg.DesiredServices) == 0 {
+		// Seed the autostart list with the usual stack (services that
+		// aren't installed are skipped); from now on it follows the
+		// user's Start/Stop clicks.
+		cfg.DesiredServices = []string{cfg.ActiveWebServer, "mailpit", "mysql", "postgresql"}
 	}
 	cfg.SchemaVersion = config.CurrentSchemaVersion
 	return true

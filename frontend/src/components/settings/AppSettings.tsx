@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { call, toast, errorMessage } from '../../lib/api'
 
 interface AppConfig {
   active_php: string
@@ -14,6 +15,10 @@ interface AppConfig {
   nginx_enabled: boolean
   ssl_enabled: boolean
   theme: string
+  php_workers?: number
+  tunnel_config_path?: string
+  tunnel_service_name?: string
+  [key: string]: any
 }
 
 export default function AppSettings() {
@@ -21,7 +26,7 @@ export default function AppSettings() {
     active_php: '',
     projects_root: '',
     apache_port: 80,
-    nginx_port: 8080,
+    nginx_port: 80,
     mysql_port: 3306,
     postgresql_port: 5432,
     dns_port: 53,
@@ -54,11 +59,12 @@ export default function AppSettings() {
     setSaving(true)
     setSaved(false)
     try {
-      await window.go?.app?.App?.UpdateConfig?.(config)
+      await call('UpdateConfig', config)
       setSaved(true)
+      toast.success('Settings saved', 'Port and PHP worker changes apply the next time a web server starts.')
       setTimeout(() => setSaved(false), 2000)
     } catch (e) {
-      console.error(e)
+      toast.error('Settings not saved', errorMessage(e))
     } finally {
       setSaving(false)
     }
@@ -73,13 +79,72 @@ export default function AppSettings() {
           {/* Projects Root */}
           <div>
             <label className="block text-xs text-text-muted mb-1.5">Projects Root Directory</label>
-            <input
-              type="text"
-              value={config.projects_root}
-              onChange={e => setConfig({ ...config, projects_root: e.target.value })}
-              placeholder="C:\Hangar\projects"
-              className="w-full px-3 py-2 bg-bg-secondary border border-border rounded-lg text-sm text-text-primary placeholder-text-dim focus:outline-none focus:border-accent/50 transition-colors font-mono"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={config.projects_root}
+                onChange={e => setConfig({ ...config, projects_root: e.target.value })}
+                placeholder="C:\Hosting\www"
+                className="w-full px-3 py-2 bg-bg-secondary border border-border rounded-lg text-sm text-text-primary placeholder-text-dim focus:outline-none focus:border-accent/50 transition-colors font-mono select-text"
+              />
+              <button
+                onClick={async () => {
+                  try { const d = await call<string>('PickProjectDirectory'); if (d) setConfig({ ...config, projects_root: d }) } catch { /* cancelled */ }
+                }}
+                className="px-3 py-2 bg-bg-secondary border border-border rounded-lg text-xs text-text-muted hover:text-text-primary"
+              >
+                Browse...
+              </button>
+            </div>
+            <p className="text-[11px] text-text-dim mt-1">New projects are created here; Scan registers folders found here.</p>
+          </div>
+
+          {/* Hosting */}
+          <div className="pt-4 border-t border-border">
+            <h3 className="text-sm font-medium mb-4">Hosting</h3>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="auto-start-hosting"
+                  checked={config.auto_start_all}
+                  onChange={e => setConfig({ ...config, auto_start_all: e.target.checked })}
+                  className="rounded border-border bg-bg-secondary accent-accent"
+                />
+                <label htmlFor="auto-start-hosting" className="text-sm text-text-muted cursor-pointer">
+                  When Hangar starts, start the services that were running before (after a reboot)
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-text-muted w-44">PHP workers per version:</span>
+                <input
+                  type="number" min={1} max={8}
+                  value={config.php_workers || 4}
+                  onChange={e => setConfig({ ...config, php_workers: Math.min(8, Math.max(1, parseInt(e.target.value) || 4)) })}
+                  className="w-20 px-2 py-1 bg-bg-secondary border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent/50 font-mono"
+                />
+                <span className="text-[11px] text-text-dim">parallel PHP requests (1-8)</span>
+              </div>
+              <div>
+                <label className="block text-xs text-text-muted mb-1.5">Cloudflare Tunnel config file</label>
+                <input
+                  type="text"
+                  value={config.tunnel_config_path || ''}
+                  onChange={e => setConfig({ ...config, tunnel_config_path: e.target.value })}
+                  placeholder="(default: Hangar data folder\cloudflared\config.yml)"
+                  className="w-full px-3 py-2 bg-bg-secondary border border-border rounded-lg text-sm text-text-primary placeholder-text-dim focus:outline-none focus:border-accent/50 font-mono select-text"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-text-muted w-44">Tunnel Windows service:</span>
+                <input
+                  type="text"
+                  value={config.tunnel_service_name || 'Cloudflared'}
+                  onChange={e => setConfig({ ...config, tunnel_service_name: e.target.value })}
+                  className="w-48 px-2 py-1 bg-bg-secondary border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent/50 font-mono select-text"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Web Servers */}
@@ -122,7 +187,7 @@ export default function AppSettings() {
                   <input
                     type="number"
                     value={config.nginx_port}
-                    onChange={e => setConfig({ ...config, nginx_port: parseInt(e.target.value) || 8080 })}
+                    onChange={e => setConfig({ ...config, nginx_port: parseInt(e.target.value) || 80 })}
                     className="w-20 px-2 py-1 bg-bg-secondary border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent/50 font-mono"
                   />
                 </div>
@@ -197,18 +262,6 @@ export default function AppSettings() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="auto-start"
-                  checked={config.auto_start_all}
-                  onChange={e => setConfig({ ...config, auto_start_all: e.target.checked })}
-                  className="rounded border-border bg-bg-secondary accent-accent"
-                />
-                <label htmlFor="auto-start" className="text-sm text-text-muted cursor-pointer">
-                  Auto-start services on launch
-                </label>
-              </div>
             </div>
           </div>
 
