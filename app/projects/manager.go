@@ -1,6 +1,7 @@
 package projects
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -8,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"text/template"
 	"time"
 
@@ -57,6 +59,9 @@ type Manager struct {
 	serviceManager *services.Manager
 	detector       *Detector
 	sslGenerator   SSLCertGenerator
+	// configChanged is set whenever a vhost file is written with new
+	// content or removed; the next reload restarts running web servers.
+	configChanged atomic.Bool
 }
 
 func NewManager(paths config.Paths, store *config.Store, svcMgr *services.Manager) *Manager {
@@ -191,6 +196,8 @@ func (m *Manager) Delete(name string) error {
 	if err := m.store.DeleteProject(name); err != nil {
 		return fmt.Errorf("projects: deleting %s: %w", name, err)
 	}
+	// Drop the removed vhost from the running web server.
+	m.reloadWebServersIfRunning()
 	// DB row is gone — surface any unlink residue so the user knows a
 	// vhost file or hosts entry may still be hanging around. We don't
 	// abort deletion on this: leaving the project row but having a
@@ -722,9 +729,11 @@ func (m *Manager) EnsureProjectsReady() error {
 // is fast (sub-second on Apache, ~1s on Nginx) and avoids the user having
 // to remember to click Restart.
 //
-// Safe to call multiple times - if nothing's running it's a no-op.
+// Safe to call multiple times - if nothing's running it's a no-op. Only
+// restarts when a vhost file actually changed since the last reload: every
+// restart briefly takes all sites offline.
 func (m *Manager) reloadWebServersIfRunning() {
-	if m.serviceManager == nil {
+	if m.serviceManager == nil || !m.configChanged.Swap(false) {
 		return
 	}
 	for _, name := range []string{"apache", "nginx"} {
@@ -799,7 +808,7 @@ func (m *Manager) linkProject(project Project, cfg config.AppConfig) {
 	apacheVhostDir := filepath.Join(m.paths.ConfPath("apache"), "vhosts")
 	os.MkdirAll(apacheVhostDir, 0755)
 	apacheConf := filepath.Join(apacheVhostDir, domainToFileName(project.Domain))
-	writeTemplate(apacheVhostTmpl, apacheConf, map[string]interface{}{
+	m.noteWrite(writeTemplate(apacheVhostTmpl, apacheConf, map[string]interface{}{
 		"ServerName":   project.Domain,
 		"Aliases":      project.Aliases,
 		"DocumentRoot": docRoot,
@@ -812,7 +821,7 @@ func (m *Manager) linkProject(project Project, cfg config.AppConfig) {
 		"LocalOnly":    project.LocalOnly,
 		"IsProxy":      isProxy,
 		"ProxyTarget":  proxyTarget,
-	})
+	}))
 
 	// Write Nginx site config
 	nginxPort := cfg.NginxPort
@@ -834,7 +843,7 @@ func (m *Manager) linkProject(project Project, cfg config.AppConfig) {
 		}
 	}
 
-	writeTemplate(nginxSiteTmpl, nginxConf, map[string]interface{}{
+	m.noteWrite(writeTemplate(nginxSiteTmpl, nginxConf, map[string]interface{}{
 		"ServerName":   project.Domain,
 		"Aliases":      project.Aliases,
 		"DocumentRoot": docRoot,
@@ -848,10 +857,22 @@ func (m *Manager) linkProject(project Project, cfg config.AppConfig) {
 		"SSLKeyPath":   filepath.ToSlash(project.SSLKeyPath),
 		"IsProxy":      isProxy,
 		"ProxyTarget":  proxyTarget,
-	})
+	}))
 
 	// Add hosts file entry (requires admin — best effort)
 	dns.AddHostEntry(project.Domain, "127.0.0.1")
+}
+
+// noteWrite records that a vhost file changed (see reloadWebServersIfRunning).
+func (m *Manager) noteWrite(changed bool, err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "projects: writing vhost: %v\n", err)
+		m.configChanged.Store(true)
+		return
+	}
+	if changed {
+		m.configChanged.Store(true)
+	}
 }
 
 // unlinkProject removes Apache vhost + Nginx site configs and hosts entry
@@ -859,12 +880,16 @@ func (m *Manager) unlinkProject(project Project) error {
 	var problems []string
 
 	apacheConf := filepath.Join(m.paths.ConfPath("apache"), "vhosts", domainToFileName(project.Domain))
-	if err := os.Remove(apacheConf); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(apacheConf); err == nil {
+		m.configChanged.Store(true)
+	} else if !os.IsNotExist(err) {
 		problems = append(problems, fmt.Sprintf("apache vhost: %v", err))
 	}
 
 	nginxConf := filepath.Join(m.paths.ConfPath("nginx"), "sites", domainToFileName(project.Domain))
-	if err := os.Remove(nginxConf); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(nginxConf); err == nil {
+		m.configChanged.Store(true)
+	} else if !os.IsNotExist(err) {
 		problems = append(problems, fmt.Sprintf("nginx site: %v", err))
 	}
 
@@ -882,18 +907,25 @@ func domainToFileName(domain string) string {
 	return strings.ReplaceAll(domain, ".", "_") + ".conf"
 }
 
-func writeTemplate(tmplStr, outPath string, data interface{}) error {
+// writeTemplate renders tmplStr and writes it to outPath only when the
+// content differs from what is on disk. Returns whether the file changed, so
+// callers restart a web server only when its config really moved.
+func writeTemplate(tmplStr, outPath string, data interface{}) (bool, error) {
 	tmpl, err := template.New("tmpl").Parse(tmplStr)
 	if err != nil {
-		return err
+		return false, err
 	}
-	os.MkdirAll(filepath.Dir(outPath), 0755)
-	f, err := os.Create(outPath)
-	if err != nil {
-		return err
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return false, err
 	}
-	defer f.Close()
-	return tmpl.Execute(f, data)
+	if old, err := os.ReadFile(outPath); err == nil && bytes.Equal(old, buf.Bytes()) {
+		return false, nil
+	}
+	if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+		return false, err
+	}
+	return true, os.WriteFile(outPath, buf.Bytes(), 0644)
 }
 
 // Embedded vhost templates (same as service templates but project-aware).

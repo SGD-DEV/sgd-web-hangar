@@ -1956,7 +1956,7 @@ func (a *App) OpenPhpMyAdmin() (string, error) {
 	if err := a.ensureWebServer(); err != nil {
 		return "", err
 	}
-	return "http://phpmyadmin.test", nil
+	return a.projectURL("phpmyadmin"), nil
 }
 
 func (a *App) findHeidiSQLDir() string {

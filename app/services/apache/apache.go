@@ -111,6 +111,12 @@ func (a *Apache) Start() error {
 		a.logStore.Add("apache", fmt.Sprintf("Warning: could not write welcome page: %v", err))
 	}
 
+	// Nothing of ours should be running at this point; anything left is a
+	// stray worker from an earlier run that would block the port.
+	if services.KillStale(a.paths.InstalledPath(), "httpd.exe") > 0 {
+		services.WaitPortFree(a.ServicePort, 5*time.Second)
+	}
+
 	confPath := filepath.Join(a.paths.ConfPath("apache"), "httpd.conf")
 	// Always regenerate config to ensure ServerRoot and paths are correct
 	os.MkdirAll(filepath.Join(a.paths.ConfPath("apache"), "vhosts"), 0755)
@@ -177,6 +183,13 @@ func (a *Apache) Stop() error {
 	if err := a.cmd.Process.Kill(); err != nil {
 		return fmt.Errorf("apache: stopping: %w", err)
 	}
+	// On Windows Apache is a parent plus a worker child. Killing the parent
+	// leaves the child running for a moment, still holding port 80 and the
+	// balancer's shared memory - a start right after (every Restart) then
+	// fails with "slotmem_create failed: File exists". End the child too
+	// and wait until the port is free.
+	services.KillStale(a.paths.InstalledPath(), "httpd.exe")
+	services.WaitPortFree(a.ServicePort, 5*time.Second)
 	a.php.StopAll()
 
 	a.Running = false
@@ -326,16 +339,25 @@ func (a *Apache) generateConfig(confPath, serverRoot string) error {
 	docRoot := a.paths.WwwPath()
 	os.MkdirAll(docRoot, 0755)
 
-	sslEnabled := false
+	// Listen on 443 whenever any project has an HTTPS vhost - SSL can be
+	// switched on per project, not only through the global setting.
+	sslEnabled := a.anyVhostUsesSSL()
 	defaultUpstream := ""
 	if cfg, err := a.store.GetAppConfig(); err == nil {
-		sslEnabled = cfg.SSLEnabled
+		sslEnabled = sslEnabled || cfg.SSLEnabled
 		if a.php.HasVersion(cfg.ActivePHP) {
 			defaultUpstream = phpfcgi.UpstreamName(cfg.ActivePHP)
 		}
 	}
 
+	runDir := a.runDir()
+	_ = os.RemoveAll(runDir)
+	if err := os.MkdirAll(runDir, 0755); err != nil {
+		return fmt.Errorf("creating runtime dir: %w", err)
+	}
+
 	data := map[string]interface{}{
+		"RunDir":          filepath.ToSlash(runDir),
 		"ServerRoot":      filepath.ToSlash(serverRoot),
 		"Listen":          a.ServicePort,
 		"DocumentRoot":    filepath.ToSlash(docRoot),
@@ -347,6 +369,30 @@ func (a *Apache) generateConfig(confPath, serverRoot string) error {
 	}
 
 	return renderTemplateStr(httpdConfTmpl, confPath, data)
+}
+
+// runDir holds Apache's pid file and shared memory segments.
+func (a *Apache) runDir() string {
+	return filepath.Join(a.paths.DataPath(), "run", "apache")
+}
+
+// anyVhostUsesSSL reports whether a generated project vhost has an HTTPS
+// block (projects write their vhosts before the web server starts).
+func (a *Apache) anyVhostUsesSSL() bool {
+	entries, err := os.ReadDir(a.GetVhostDir())
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".conf") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(a.GetVhostDir(), e.Name()))
+		if err == nil && strings.Contains(string(data), "<VirtualHost *:443>") {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *Apache) GetConfPath() string {

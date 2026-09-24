@@ -363,7 +363,19 @@ include __DIR__ . '/adminer.php';
 	if err := a.ensureWebServer(); err != nil {
 		return "", err
 	}
-	return "http://adminer.test", nil
+	return a.projectURL("adminer"), nil
+}
+
+// projectURL is the local address of a project, https when it has a cert.
+func (a *App) projectURL(name string) string {
+	p, err := a.projectManager.Get(name)
+	if err != nil {
+		return "http://" + name + ".test"
+	}
+	if p.SSLEnabled && p.SSLCertPath != "" {
+		return "https://" + p.Domain
+	}
+	return "http://" + p.Domain
 }
 
 // OpenPgAdmin launches the pgAdmin 4 desktop app bundled with PostgreSQL.

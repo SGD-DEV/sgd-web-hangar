@@ -1,4 +1,9 @@
 ServerRoot "{{.ServerRoot}}"
+# Shared memory files (balancer slots) live here. Hangar empties the folder
+# before each start: a killed Apache leaves them behind, and the next start
+# would fail with "slotmem_create failed: File exists".
+DefaultRuntimeDir "{{.RunDir}}"
+PidFile "{{.RunDir}}/httpd.pid"
 Listen {{.Listen}}
 {{if .SSLEnabled}}Listen 443{{end}}
 
