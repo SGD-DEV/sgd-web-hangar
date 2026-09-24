@@ -192,6 +192,10 @@ func Bootstrap(opts Options, log Logger) (*Core, error) {
 		return nil, fmt.Errorf("opening config store: %w", err)
 	}
 
+	// Before anything reads stored paths: fix them up if the data folder
+	// was moved since the last run.
+	relocate(paths, store, log)
+
 	c := &Core{
 		Paths:       paths,
 		Config:      store,

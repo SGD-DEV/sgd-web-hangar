@@ -1,7 +1,9 @@
 package ssl
 
 import (
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"os/exec"
@@ -9,7 +11,10 @@ import (
 	"time"
 
 	"github.com/devour-app/devour/app/config"
+	"github.com/devour-app/devour/app/services"
 )
+
+func hideWindow(cmd *exec.Cmd) { services.HideWindow(cmd) }
 
 type CertInfo struct {
 	Domain    string `json:"domain"`
@@ -48,13 +53,64 @@ func (m *Manager) resolveMkcert() (string, error) {
 	return path, nil
 }
 
+// CARoot is where the local certificate authority (rootCA.pem + key) lives:
+// inside Hangar's data folder, so it moves and gets backed up with the rest.
+// A CA that mkcert created in its default location earlier is copied over
+// once, so certificates already trusted by the browser stay valid.
+func (m *Manager) CARoot() string {
+	dir := filepath.Join(m.paths.SSLPath(), "ca")
+	if _, err := os.Stat(filepath.Join(dir, "rootCA.pem")); err != nil {
+		if local := os.Getenv("LOCALAPPDATA"); local != "" {
+			legacy := filepath.Join(local, "mkcert")
+			if _, err := os.Stat(filepath.Join(legacy, "rootCA-key.pem")); err == nil {
+				_ = os.MkdirAll(dir, 0700)
+				for _, f := range []string{"rootCA.pem", "rootCA-key.pem"} {
+					if data, err := os.ReadFile(filepath.Join(legacy, f)); err == nil {
+						_ = os.WriteFile(filepath.Join(dir, f), data, 0600)
+					}
+				}
+			}
+		}
+	}
+	return dir
+}
+
+// mkcertCmd prepares an mkcert invocation that uses Hangar's CA folder. The
+// window is NOT hidden: -install / -uninstall show Windows' "install this
+// certificate?" confirmation, which a hidden process could never display.
+func (m *Manager) mkcertCmd(mkcert string, args ...string) *exec.Cmd {
+	cmd := exec.Command(mkcert, args...)
+	cmd.Env = append(os.Environ(), "CAROOT="+m.CARoot())
+	return cmd
+}
+
+// IsCAInstalled reports whether Windows trusts Hangar's root CA, i.e.
+// browsers accept the local HTTPS certificates without a warning.
+func (m *Manager) IsCAInstalled() bool {
+	data, err := os.ReadFile(filepath.Join(m.CARoot(), "rootCA.pem"))
+	if err != nil {
+		return false
+	}
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return false
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return false
+	}
+	// With no Roots set, Verify asks the operating system's trust store.
+	_, err = cert.Verify(x509.VerifyOptions{})
+	return err == nil
+}
+
 func (m *Manager) InstallCA() error {
 	mkcert, err := m.resolveMkcert()
 	if err != nil {
 		return err
 	}
 
-	cmd := exec.Command(mkcert, "-install")
+	cmd := m.mkcertCmd(mkcert, "-install")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ssl: installing CA: %s: %w", string(output), err)
@@ -69,7 +125,7 @@ func (m *Manager) UninstallCA() error {
 		return err
 	}
 
-	cmd := exec.Command(mkcert, "-uninstall")
+	cmd := m.mkcertCmd(mkcert, "-uninstall")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("ssl: uninstalling CA: %s: %w", string(output), err)
@@ -92,12 +148,13 @@ func (m *Manager) GenerateCert(domain string) error {
 	certPath := filepath.Join(sslDir, domain+".pem")
 	keyPath := filepath.Join(sslDir, domain+"-key.pem")
 
-	cmd := exec.Command(mkcert,
+	cmd := m.mkcertCmd(mkcert,
 		"-cert-file", certPath,
 		"-key-file", keyPath,
 		domain,
 		"*."+domain,
 	)
+	hideWindow(cmd) // no console flash; generating needs no confirmation
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {

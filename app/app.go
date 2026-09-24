@@ -714,7 +714,25 @@ func (a *App) ScanProjects() ([]projects.Project, error) {
 // --- SSL methods ---
 
 func (a *App) InstallRootCA() error {
-	return a.sslManager.InstallCA()
+	if err := a.sslManager.InstallCA(); err != nil {
+		return err
+	}
+	if !a.sslManager.IsCAInstalled() {
+		return fmt.Errorf("the certificate was not added - confirm the Windows security prompt with Yes")
+	}
+	return nil
+}
+
+// IsRootCAInstalled reports whether Windows trusts Hangar's local CA.
+func (a *App) IsRootCAInstalled() bool {
+	return a.sslManager != nil && a.sslManager.IsCAInstalled()
+}
+
+func (a *App) GetSSLCAPath() string {
+	if a.sslManager == nil {
+		return ""
+	}
+	return a.sslManager.CARoot()
 }
 
 func (a *App) GenerateSSLCert(domain string) error {
@@ -1788,16 +1806,18 @@ func (a *App) OpenInExplorer(path string) error {
 	}
 	// Use the shell to handle both files (selects) and dirs (opens).
 	// /select, expects a file - for a directory we just pass the path.
+	// No services.HideWindow here: its SW_HIDE start flag hides the
+	// Explorer window itself, so the button appeared to do nothing.
 	info, err := os.Stat(path)
 	if err == nil && info.IsDir() {
 		cmd := exec.Command("explorer.exe", path)
-		services.HideWindow(cmd)
-		_ = cmd.Start()
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("OpenInExplorer: %w", err)
+		}
 		go func() { _ = cmd.Wait() }()
 		return nil
 	}
 	cmd := exec.Command("explorer.exe", "/select,", path)
-	services.HideWindow(cmd)
 	_ = cmd.Start()
 	go func() { _ = cmd.Wait() }()
 	return nil

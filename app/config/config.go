@@ -52,6 +52,10 @@ type AppConfig struct {
 	// edits, and the Windows service that runs `cloudflared tunnel run`.
 	TunnelConfigPath  string `json:"tunnel_config_path"`
 	TunnelServiceName string `json:"tunnel_service_name"`
+	// BasePath is the data folder this config was last used with. When
+	// Hangar starts from a different one (the folder was moved), stored
+	// absolute paths are rewritten - see core.relocate.
+	BasePath string `json:"base_path"`
 }
 
 type ServiceConfig struct {
@@ -268,6 +272,38 @@ func (s *Store) GetAllSSLCerts() (map[string][]byte, error) {
 		})
 	})
 	return result, err
+}
+
+// RewriteAll passes every stored value (in every bucket) through fn and
+// saves the ones that changed. Used to relocate absolute paths when the
+// data folder moves. Returns the number of values changed.
+func (s *Store) RewriteAll(fn func(value []byte) []byte) (int, error) {
+	changed := 0
+	err := s.db.Update(func(tx *bolt.Tx) error {
+		return tx.ForEach(func(_ []byte, b *bolt.Bucket) error {
+			type kv struct{ k, v []byte }
+			var updates []kv
+			if err := b.ForEach(func(k, v []byte) error {
+				if v == nil { // nested bucket
+					return nil
+				}
+				if nv := fn(v); string(nv) != string(v) {
+					updates = append(updates, kv{append([]byte(nil), k...), nv})
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
+			for _, u := range updates {
+				if err := b.Put(u.k, u.v); err != nil {
+					return err
+				}
+				changed++
+			}
+			return nil
+		})
+	})
+	return changed, err
 }
 
 // --- Custom packages (user-added entries) ---

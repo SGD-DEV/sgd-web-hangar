@@ -5,12 +5,15 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func NewPlatformPaths() Paths {
 	// 1. Explicit override via env var
-	if base := os.Getenv("DEVOUR_HOME"); base != "" {
-		return &basePaths{base: base}
+	for _, env := range []string{"HANGAR_HOME", "DEVOUR_HOME"} {
+		if base := os.Getenv(env); base != "" {
+			return &basePaths{base: base}
+		}
 	}
 
 	// 2. Resolve from exe location
@@ -21,6 +24,15 @@ func NewPlatformPaths() Paths {
 	}
 
 	exeDir := filepath.Dir(exePath)
+
+	// 3. hangar-home.txt next to the exe names the data folder. Unlike an
+	// environment variable it also applies to the autostart entry and to
+	// processes started before the variable was set.
+	if data, err := os.ReadFile(filepath.Join(exeDir, "hangar-home.txt")); err == nil {
+		if base := strings.TrimSpace(strings.TrimPrefix(string(data), "\ufeff")); base != "" {
+			return &basePaths{base: base}
+		}
+	}
 
 	// Dev mode: exe is in project root (wails dev) - wails.json is next to it.
 	// Data lives next to the exe so testing artifacts stay in the repo and
