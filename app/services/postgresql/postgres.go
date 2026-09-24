@@ -155,6 +155,16 @@ func (p *PostgreSQL) Start() error {
 	}
 
 	p.logStore.Add("postgresql", "Starting PostgreSQL server...")
+
+	// postgres.exe refuses to run with an administrator token. When Hangar
+	// itself is elevated, let pg_ctl start it: pg_ctl drops privileges
+	// reliably, unlike a hand-built restricted token (0xc0000142). Its
+	// output goes to the log file, never to a pipe - a pipe inherited by
+	// the postmaster is what made pg_ctl appear to hang in the past.
+	if elevated, _ := isElevated(); elevated {
+		return p.startViaPgCtl(pgCtlPath, dataDir, logFile)
+	}
+
 	startCmd := exec.Command(postgresExe, "-D", dataDir)
 	startCmd.Dir = filepath.Dir(postgresExe)
 	services.HideWindow(startCmd)
@@ -232,6 +242,52 @@ func (p *PostgreSQL) Start() error {
 	return nil
 }
 
+// startViaPgCtl is the elevated-Hangar start path (see Start). pg_ctl runs
+// with -W (don't wait); readiness is detected by probing the port, the PID
+// comes from postmaster.pid.
+func (p *PostgreSQL) startViaPgCtl(pgCtlPath, dataDir, logFile string) error {
+	cmd := exec.Command(pgCtlPath, "start", "-W", "-D", dataDir, "-l", logFile)
+	cmd.Dir = filepath.Dir(pgCtlPath)
+	services.HideWindow(cmd)
+	if err := cmd.Run(); err != nil {
+		p.mu.Lock()
+		p.StatusText = services.StatusStopped
+		p.LastError = "pg_ctl start: " + err.Error()
+		p.mu.Unlock()
+		return fmt.Errorf("postgresql: %s", p.LastError)
+	}
+
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		if tcpProbe("127.0.0.1", p.ServicePort, 500*time.Millisecond) {
+			pid := p.readPostmasterPID(dataDir)
+			p.mu.Lock()
+			p.Running = true
+			p.StatusText = services.StatusRunning
+			p.ProcessPID = pid
+			p.StartTime = time.Now()
+			p.LastError = ""
+			p.cmd = nil
+			p.mu.Unlock()
+			go p.monitorProcess(dataDir)
+			p.logStore.Add("postgresql", fmt.Sprintf("PostgreSQL started via pg_ctl (PID: %d)", pid))
+			return nil
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	p.mu.Lock()
+	p.StatusText = services.StatusStopped
+	if tail := readLogTail(logFile, 4096); tail != "" {
+		p.LastError = "PostgreSQL didn't accept connections in 30s. Last log entries:\n" + tail
+	} else {
+		p.LastError = "PostgreSQL didn't accept connections in 30s and no log was written"
+	}
+	p.mu.Unlock()
+	p.logStore.Add("postgresql", p.LastError)
+	return fmt.Errorf("postgresql: %s", p.LastError)
+}
+
 func (p *PostgreSQL) Stop() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -250,8 +306,7 @@ func (p *PostgreSQL) Stop() error {
 		stopCmd := exec.Command(pgCtlPath, "stop", "-w", "-D", dataDir, "-m", "fast")
 		stopCmd.Dir = filepath.Dir(pgCtlPath)
 		services.HideWindow(stopCmd)
-		// Match the token postgres is running under so pg_ctl's IPC works.
-		applyRestrictedToken(stopCmd)
+		// pg_ctl drops an administrator token by itself, like on start.
 		if err := stopCmd.Run(); err != nil {
 			// Fallback: kill the process directly
 			if pid > 0 {
@@ -454,19 +509,13 @@ func (p *PostgreSQL) initDB(dataDir string) error {
 	cmd := exec.Command(initdbPath, args...)
 	cmd.Dir = filepath.Dir(initdbPath)
 	services.HideWindow(cmd)
-	// Run initdb under the same restricted token postgres will run under.
-	// Otherwise, files created by elevated initdb can end up owned by
-	// BUILTIN\Administrators (Windows default for elevated processes), which
-	// the later restricted-token postgres cannot read.
-	tokenApplied := true
-	if err := applyRestrictedToken(cmd); err != nil {
-		p.logStore.Add("postgresql", fmt.Sprintf("Warning: could not apply restricted token to initdb (%v)", err))
-		tokenApplied = false
-	}
+	// No custom token here: when started from an elevated process initdb
+	// re-executes itself under a restricted token on its own (the same
+	// mechanism pg_ctl uses). Launching it with Hangar's hand-built token
+	// failed with STATUS_DLL_INIT_FAILED (0xc0000142).
 	// Log what we're actually running - if init fails silently this is the
 	// only way to debug it from the UI.
-	p.logStore.Add("postgresql", fmt.Sprintf("Running: %s %v (cwd=%s, restricted_token=%v)",
-		initdbPath, args, cmd.Dir, tokenApplied))
+	p.logStore.Add("postgresql", fmt.Sprintf("Running: %s %v (cwd=%s)", initdbPath, args, cmd.Dir))
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {

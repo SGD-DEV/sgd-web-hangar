@@ -27,6 +27,8 @@ func main() {
 		os.Exit(cli.Run(os.Args[1:]))
 	}
 
+	startHidden := len(os.Args) == 2 && os.Args[1] == cli.BackgroundFlag
+
 	devourApp := app.NewApp()
 
 	// ctxCh hands the Wails context to the tray goroutine once Startup runs.
@@ -57,6 +59,9 @@ func main() {
 		Height:    800,
 		MinWidth:  1024,
 		MinHeight: 600,
+		// Autostart launches with --background: tray only until the user
+		// opens the window from the tray or the Start menu.
+		StartHidden: startHidden,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
@@ -87,15 +92,14 @@ func main() {
 		// hide (so a stray click doesn't kill MySQL/Postgres mid-write); if
 		// nothing's running, allow the close. The "Quit Devour" tray menu
 		// bypasses this by setting AllowQuit() first.
+		// On a hosting box the window's X must never take the sites down:
+		// it always hides to the tray. Quitting is an explicit tray action.
 		OnBeforeClose: func(ctx context.Context) bool {
 			if devourApp.AllowingQuit() {
 				return false // don't prevent close
 			}
-			if devourApp.HasRunningServices() {
-				wailsruntime.WindowHide(ctx)
-				return true // prevent close
-			}
-			return false
+			wailsruntime.WindowHide(ctx)
+			return true // prevent close
 		},
 		OnShutdown: func(ctx context.Context) {
 			devourApp.Shutdown(ctx)

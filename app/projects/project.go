@@ -18,6 +18,16 @@ type Project struct {
 	// app you started with `python manage.py runserver`). Empty for any
 	// other framework.
 	ProxyTarget string `json:"proxy_target,omitempty"`
+	// Aliases are extra host names the site answers to, typically the
+	// public domains routed here by the Cloudflare Tunnel
+	// (e.g. "blog.example.com"). Unlike Domain they are NOT written to the
+	// hosts file - they resolve through real DNS.
+	Aliases []string `json:"aliases,omitempty"`
+	// LocalOnly restricts the site to requests from this machine. Used for
+	// the database tools (phpMyAdmin, Adminer) that log in without a
+	// password: Apache listens on every interface, so without this anyone
+	// on the LAN could reach them by sending the right Host header.
+	LocalOnly bool `json:"local_only,omitempty"`
 }
 
 type Framework string

@@ -33,8 +33,17 @@ var Version = "dev"
 // "unknown command" error, which is the right UX: typing `hangar foo`
 // should never silently launch the GUI.
 func IsCLIInvocation(args []string) bool {
+	if len(args) == 1 && args[0] == BackgroundFlag {
+		return false
+	}
 	return len(args) > 0
 }
+
+// BackgroundFlag starts the normal GUI process with its window hidden (tray
+// only). It is what the Windows autostart entry launches: one process owns
+// the services, the tray and the window, so "Open" from the tray or a second
+// launch from the Start menu just shows the window.
+const BackgroundFlag = "--background"
 
 // Run executes the CLI with args (typically os.Args[1:]) and returns
 // the desired process exit code. Caller is responsible for calling

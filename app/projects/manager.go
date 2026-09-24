@@ -3,6 +3,7 @@ package projects
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/devour-app/devour/app/config"
 	"github.com/devour-app/devour/app/dns"
+	"github.com/devour-app/devour/app/phpfcgi"
 	"github.com/devour-app/devour/app/services"
 )
 
@@ -86,6 +88,7 @@ type CreateOptions struct {
 	ProxyTarget string `json:"proxy_target,omitempty"` // required when Framework == "proxy"
 	WebServer   string `json:"web_server,omitempty"`   // "apache" | "nginx", default apache
 	SSLEnabled  bool   `json:"ssl_enabled,omitempty"`  // generate https vhost + mkcert
+	LocalOnly   bool   `json:"local_only,omitempty"`   // only reachable from this machine
 }
 
 // CreateWithOptions is the rich-form project creator. Use Create() for the
@@ -107,6 +110,12 @@ func (m *Manager) CreateWithOptions(opts CreateOptions) (Project, error) {
 	if err := validateDomain(domain); err != nil {
 		return Project{}, fmt.Errorf("projects: %w", err)
 	}
+	if err := m.checkHostnamesFree(name, []string{domain}); err != nil {
+		return Project{}, err
+	}
+	if err := validateConfigPath(opts.Path); err != nil {
+		return Project{}, err
+	}
 
 	path := opts.Path
 	if path == "" && opts.Framework != string(FrameworkProxy) {
@@ -125,9 +134,11 @@ func (m *Manager) CreateWithOptions(opts CreateOptions) (Project, error) {
 	var framework Framework
 	var docRoot string
 	if opts.Framework == string(FrameworkProxy) {
-		if opts.ProxyTarget == "" {
-			return Project{}, fmt.Errorf("projects: proxy_target required for proxy projects")
+		target, err := validateProxyTarget(opts.ProxyTarget)
+		if err != nil {
+			return Project{}, err
 		}
+		opts.ProxyTarget = target
 		framework = FrameworkProxy
 		docRoot = "" // unused for proxy
 	} else if opts.Framework != "" {
@@ -152,6 +163,7 @@ func (m *Manager) CreateWithOptions(opts CreateOptions) (Project, error) {
 		Framework:    string(framework),
 		DocumentRoot: docRoot,
 		ProxyTarget:  opts.ProxyTarget,
+		LocalOnly:    opts.LocalOnly,
 		CreatedAt:    time.Now().Format(time.RFC3339),
 	}
 
@@ -308,6 +320,176 @@ func (m *Manager) Update(name string, project Project) error {
 	}
 
 	return m.store.SaveProject(name, data)
+}
+
+// ProjectSettings is everything the "Edit project" dialog can change. The
+// project name is the storage key and stays fixed.
+type ProjectSettings struct {
+	Domain       string   `json:"domain"`
+	Aliases      []string `json:"aliases"`
+	Path         string   `json:"path"`
+	DocumentRoot string   `json:"document_root"`
+	PHPVersion   string   `json:"php_version"`
+	ProxyTarget  string   `json:"proxy_target"`
+	SSLEnabled   bool     `json:"ssl_enabled"`
+	LocalOnly    bool     `json:"local_only"`
+}
+
+// UpdateSettings validates and applies an edit to an existing project and
+// rewrites its vhosts. When the local domain changes, the old vhost files and
+// hosts entry are removed first so nothing stale keeps answering.
+func (m *Manager) UpdateSettings(name string, s ProjectSettings) (Project, error) {
+	p, err := m.Get(name)
+	if err != nil {
+		return Project{}, err
+	}
+	cfg, err := m.store.GetAppConfig()
+	if err != nil {
+		return Project{}, fmt.Errorf("projects: reading config: %w", err)
+	}
+
+	domain := strings.ToLower(strings.TrimSpace(s.Domain))
+	if err := validateDomain(domain); err != nil {
+		return Project{}, fmt.Errorf("projects: %w", err)
+	}
+	aliases, err := normalizeAliases(s.Aliases, domain)
+	if err != nil {
+		return Project{}, err
+	}
+	if err := m.checkHostnamesFree(name, append([]string{domain}, aliases...)); err != nil {
+		return Project{}, err
+	}
+
+	updated := p
+	updated.Domain = domain
+	updated.Aliases = aliases
+	updated.SSLEnabled = s.SSLEnabled
+	updated.LocalOnly = s.LocalOnly
+
+	if p.Framework == string(FrameworkProxy) {
+		target, err := validateProxyTarget(s.ProxyTarget)
+		if err != nil {
+			return Project{}, err
+		}
+		updated.ProxyTarget = target
+	} else {
+		path := strings.TrimSpace(s.Path)
+		if path == "" {
+			path = p.Path
+		}
+		if err := validateConfigPath(path); err != nil {
+			return Project{}, err
+		}
+		if info, err := os.Stat(path); err != nil || !info.IsDir() {
+			return Project{}, fmt.Errorf("projects: folder %s does not exist", path)
+		}
+		updated.Path = path
+
+		docRoot := strings.TrimSpace(s.DocumentRoot)
+		if docRoot == "" || (path != p.Path && docRoot == p.DocumentRoot) {
+			docRoot = m.detector.GetDocumentRoot(path, Framework(p.Framework))
+		}
+		if err := validateConfigPath(docRoot); err != nil {
+			return Project{}, err
+		}
+		if info, err := os.Stat(docRoot); err != nil || !info.IsDir() {
+			return Project{}, fmt.Errorf("projects: document root %s does not exist", docRoot)
+		}
+		updated.DocumentRoot = docRoot
+
+		if s.PHPVersion != "" {
+			if _, err := os.Stat(filepath.Join(m.paths.PHPPath(s.PHPVersion), "php.exe")); err != nil {
+				return Project{}, fmt.Errorf("projects: PHP %s is not installed", s.PHPVersion)
+			}
+			updated.PHPVersion = s.PHPVersion
+		}
+	}
+
+	if domain != p.Domain {
+		// Certificates are issued per domain; the new one gets its own on
+		// the next EnsureProjectsReady if SSL stays enabled.
+		updated.SSLCertPath = ""
+		updated.SSLKeyPath = ""
+		if err := m.unlinkProject(p); err != nil {
+			// Not fatal: a leftover hosts line is harmless, the vhost
+			// files were removed first.
+			fmt.Fprintf(os.Stderr, "projects: unlinking old domain %s: %v\n", p.Domain, err)
+		}
+	}
+	if !updated.SSLEnabled {
+		updated.SSLCertPath = ""
+		updated.SSLKeyPath = ""
+	}
+
+	if err := m.Update(name, updated); err != nil {
+		return Project{}, err
+	}
+	m.linkProject(updated, cfg)
+	return updated, nil
+}
+
+// checkHostnamesFree makes sure no other project already answers to one of
+// hosts - two vhosts with the same name would silently shadow each other.
+func (m *Manager) checkHostnamesFree(self string, hosts []string) error {
+	taken := map[string]string{}
+	for _, other := range m.List() {
+		if other.Name == self {
+			continue
+		}
+		taken[other.Domain] = other.Name
+		for _, a := range other.Aliases {
+			taken[a] = other.Name
+		}
+	}
+	for _, h := range hosts {
+		if owner, ok := taken[h]; ok {
+			return fmt.Errorf("projects: %s is already used by project %q", h, owner)
+		}
+	}
+	return nil
+}
+
+func normalizeAliases(in []string, domain string) ([]string, error) {
+	seen := map[string]bool{domain: true}
+	var out []string
+	for _, a := range in {
+		a = strings.ToLower(strings.TrimSpace(a))
+		a = strings.TrimPrefix(strings.TrimPrefix(a, "https://"), "http://")
+		a = strings.TrimSuffix(a, "/")
+		if a == "" || seen[a] {
+			continue
+		}
+		if err := validateDomain(a); err != nil {
+			return nil, fmt.Errorf("projects: alias: %w", err)
+		}
+		seen[a] = true
+		out = append(out, a)
+	}
+	return out, nil
+}
+
+// validateProxyTarget accepts http(s)://host[:port][/path]. The value is
+// pasted into Apache and Nginx configs, so anything that could break out of
+// the directive (quotes, spaces, semicolons, newlines) is rejected.
+func validateProxyTarget(raw string) (string, error) {
+	t := strings.TrimRight(strings.TrimSpace(raw), "/")
+	u, err := url.Parse(t)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return "", fmt.Errorf("projects: proxy target must look like http://127.0.0.1:8000")
+	}
+	if strings.ContainsAny(t, " \t\r\n\"';{}") {
+		return "", fmt.Errorf("projects: proxy target contains invalid characters")
+	}
+	return t, nil
+}
+
+// validateConfigPath rejects paths that would break the quoted path
+// directives in the generated web server configs.
+func validateConfigPath(p string) error {
+	if strings.ContainsAny(p, "\"\r\n;{}") {
+		return fmt.Errorf("projects: path %q contains characters that are not allowed", p)
+	}
+	return nil
 }
 
 // SiteLogKind is one of the per-vhost log streams Apache/Nginx write.
@@ -558,6 +740,19 @@ func (m *Manager) reloadWebServersIfRunning() {
 	}
 }
 
+// RelinkAll rewrites the vhost files of every registered project. Run at
+// startup so configs generated by an older Hangar (different templates,
+// ports, PHP wiring) never reach a web server.
+func (m *Manager) RelinkAll() {
+	cfg, err := m.store.GetAppConfig()
+	if err != nil {
+		return
+	}
+	for _, p := range m.List() {
+		m.linkProject(p, cfg)
+	}
+}
+
 // GetProjectsRoot returns the effective projects root directory
 func (m *Manager) GetProjectsRoot() string {
 	cfg, err := m.store.GetAppConfig()
@@ -565,6 +760,20 @@ func (m *Manager) GetProjectsRoot() string {
 		return m.paths.ProjectsPath()
 	}
 	return m.projectsRoot(cfg)
+}
+
+// phpUpstream returns the FastCGI pool name (see app/phpfcgi) a project's
+// PHP requests go to: its pinned version if installed, else the active one.
+func (m *Manager) phpUpstream(project Project, cfg config.AppConfig) string {
+	for _, v := range []string{project.PHPVersion, cfg.ActivePHP} {
+		if v == "" {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(m.paths.PHPPath(v), "php-cgi.exe")); err == nil {
+			return phpfcgi.UpstreamName(v)
+		}
+	}
+	return ""
 }
 
 // linkProject writes Apache vhost + Nginx site configs and adds a hosts file entry
@@ -575,22 +784,8 @@ func (m *Manager) linkProject(project Project, cfg config.AppConfig) {
 	if port == 0 {
 		port = 80
 	}
-
-	// Resolve per-project PHP CGI path
-	phpVersion := project.PHPVersion
-	if phpVersion == "" {
-		phpVersion = cfg.ActivePHP
-	}
-	phpCgiExe := ""
-	phpCgiDir := ""
-	if phpVersion != "" {
-		phpDir := m.paths.PHPPath(phpVersion)
-		cgiPath := filepath.Join(phpDir, "php-cgi.exe")
-		if _, err := os.Stat(cgiPath); err == nil {
-			phpCgiExe = filepath.ToSlash(cgiPath)
-			phpCgiDir = filepath.ToSlash(phpDir) + "/"
-		}
-	}
+	phpUpstream := m.phpUpstream(project, cfg)
+	proxyTarget := strings.TrimRight(project.ProxyTarget, "/")
 
 	// Write Apache vhost config. If this is a proxy project, the template
 	// emits ProxyPass/ProxyPassReverse instead of a DocumentRoot mount.
@@ -606,22 +801,23 @@ func (m *Manager) linkProject(project Project, cfg config.AppConfig) {
 	apacheConf := filepath.Join(apacheVhostDir, domainToFileName(project.Domain))
 	writeTemplate(apacheVhostTmpl, apacheConf, map[string]interface{}{
 		"ServerName":   project.Domain,
+		"Aliases":      project.Aliases,
 		"DocumentRoot": docRoot,
 		"Port":         port,
 		"LogDir":       logDir,
 		"SSLEnabled":   sslReady,
 		"SSLCertPath":  filepath.ToSlash(project.SSLCertPath),
 		"SSLKeyPath":   filepath.ToSlash(project.SSLKeyPath),
-		"PHPCgiExe":    phpCgiExe,
-		"PHPCgiDir":    phpCgiDir,
+		"PHPUpstream":  phpUpstream,
+		"LocalOnly":    project.LocalOnly,
 		"IsProxy":      isProxy,
-		"ProxyTarget":  project.ProxyTarget,
+		"ProxyTarget":  proxyTarget,
 	})
 
 	// Write Nginx site config
 	nginxPort := cfg.NginxPort
 	if nginxPort == 0 {
-		nginxPort = 8080
+		nginxPort = 80
 	}
 	nginxSitesDir := filepath.Join(m.paths.ConfPath("nginx"), "sites")
 	os.MkdirAll(nginxSitesDir, 0755)
@@ -640,16 +836,18 @@ func (m *Manager) linkProject(project Project, cfg config.AppConfig) {
 
 	writeTemplate(nginxSiteTmpl, nginxConf, map[string]interface{}{
 		"ServerName":   project.Domain,
+		"Aliases":      project.Aliases,
 		"DocumentRoot": docRoot,
 		"Listen":       nginxPort,
-		"PHPFPMSocket": "127.0.0.1:9000",
+		"PHPUpstream":  phpUpstream,
+		"LocalOnly":    project.LocalOnly,
 		"PrefixDir":    prefixDir,
 		"LogDir":       logDir,
 		"SSLEnabled":   sslReady, // same defensive gating as Apache
 		"SSLCertPath":  filepath.ToSlash(project.SSLCertPath),
 		"SSLKeyPath":   filepath.ToSlash(project.SSLKeyPath),
 		"IsProxy":      isProxy,
-		"ProxyTarget":  project.ProxyTarget,
+		"ProxyTarget":  proxyTarget,
 	})
 
 	// Add hosts file entry (requires admin — best effort)
@@ -698,65 +896,43 @@ func writeTemplate(tmplStr, outPath string, data interface{}) error {
 	return tmpl.Execute(f, data)
 }
 
-// Embedded vhost templates (same as service templates but project-aware)
-const apacheVhostTmpl = `# HTTP — always active
-<VirtualHost *:{{.Port}}>
-    ServerName {{.ServerName}}
-{{if .IsProxy}}    # Reverse-proxy to a non-PHP backend (Python, Node, Go, etc.)
-    # Requires mod_proxy + mod_proxy_http loaded in httpd.conf.
+// Embedded vhost templates (same as service templates but project-aware).
+//
+// PHP is handed to the FastCGI worker pool of the project's PHP version
+// (balancer://phpXY on Apache, upstream phpXY on Nginx); both are declared
+// in the main server config by the web server service.
+const apacheVhostTmpl = `{{define "body"}}    ServerName {{.ServerName}}
+{{range .Aliases}}    ServerAlias {{.}}
+{{end}}{{if .IsProxy}}    # Reverse-proxy to a non-PHP backend (Python, Node, Go, etc.)
     ProxyPreserveHost On
     ProxyRequests Off
-    ProxyPass "/" "{{.ProxyTarget}}/"
+    ProxyPass "/" "{{.ProxyTarget}}/" upgrade=websocket
     ProxyPassReverse "/" "{{.ProxyTarget}}/"
-{{else}}    DocumentRoot "{{.DocumentRoot}}"
+{{if .LocalOnly}}    <Location "/">
+        Require local
+    </Location>
+{{end}}{{else}}    DocumentRoot "{{.DocumentRoot}}"
 
     <Directory "{{.DocumentRoot}}">
-        Options Indexes FollowSymLinks ExecCGI
+        Options FollowSymLinks
         AllowOverride All
-        Require all granted
-    </Directory>
-
-    DirectoryIndex index.php index.html
-{{if .PHPCgiExe}}
-    ScriptAlias /php-cgi-{{.ServerName}}/ "{{.PHPCgiDir}}"
-    <Directory "{{.PHPCgiDir}}">
-        AllowOverride None
-        Options None
-        Require all granted
-    </Directory>
-    Action application/x-httpd-php "/php-cgi-{{.ServerName}}/php-cgi.exe"
-{{end}}{{end}}
-
+        {{if .LocalOnly}}Require local{{else}}Require all granted{{end}}
+{{if .PHPUpstream}}        <FilesMatch "\.php$">
+            <If "-f %{REQUEST_FILENAME}">
+                SetHandler "proxy:balancer://{{.PHPUpstream}}/"
+            </If>
+        </FilesMatch>
+{{end}}    </Directory>
+{{end}}{{end}}# HTTP
+<VirtualHost *:{{.Port}}>
+{{template "body" .}}
     ErrorLog "{{.LogDir}}/{{.ServerName}}_error.log"
     CustomLog "{{.LogDir}}/{{.ServerName}}_access.log" combined
 </VirtualHost>
 {{if .SSLEnabled}}
 # HTTPS
 <VirtualHost *:443>
-    ServerName {{.ServerName}}
-{{if .IsProxy}}    ProxyPreserveHost On
-    ProxyRequests Off
-    ProxyPass "/" "{{.ProxyTarget}}/"
-    ProxyPassReverse "/" "{{.ProxyTarget}}/"
-{{else}}    DocumentRoot "{{.DocumentRoot}}"
-
-    <Directory "{{.DocumentRoot}}">
-        Options Indexes FollowSymLinks ExecCGI
-        AllowOverride All
-        Require all granted
-    </Directory>
-
-    DirectoryIndex index.php index.html
-{{if .PHPCgiExe}}
-    ScriptAlias /php-cgi-{{.ServerName}}/ "{{.PHPCgiDir}}"
-    <Directory "{{.PHPCgiDir}}">
-        AllowOverride None
-        Options None
-        Require all granted
-    </Directory>
-    Action application/x-httpd-php "/php-cgi-{{.ServerName}}/php-cgi.exe"
-{{end}}{{end}}
-
+{{template "body" .}}
     SSLEngine on
     SSLCertificateFile "{{.SSLCertPath}}"
     SSLCertificateKeyFile "{{.SSLKeyPath}}"
@@ -764,8 +940,7 @@ const apacheVhostTmpl = `# HTTP — always active
     ErrorLog "{{.LogDir}}/{{.ServerName}}_ssl_error.log"
     CustomLog "{{.LogDir}}/{{.ServerName}}_ssl_access.log" combined
 </VirtualHost>
-{{end}}
-`
+{{end}}`
 
 const nginxSiteTmpl = `server {
     listen {{.Listen}};
@@ -773,7 +948,16 @@ const nginxSiteTmpl = `server {
     ssl_certificate     "{{.SSLCertPath}}";
     ssl_certificate_key "{{.SSLKeyPath}}";
 {{end}}
-    server_name {{.ServerName}};
+    server_name {{.ServerName}}{{range .Aliases}} {{.}}{{end}};
+{{if .LocalOnly}}
+    allow 127.0.0.1;
+    allow ::1;
+    deny all;
+{{end}}
+
+    location ~ /\.(?!well-known) {
+        deny all;
+    }
 {{if .IsProxy}}    # Reverse-proxy to a non-PHP backend (Python/Node/Go/etc.)
     location / {
         proxy_pass {{.ProxyTarget}};
@@ -792,14 +976,17 @@ const nginxSiteTmpl = `server {
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }
-
+{{if .PHPUpstream}}
     location ~ \.php$ {
-        fastcgi_pass   127.0.0.1:9000;
+        try_files      $uri =404;
+        fastcgi_pass   {{.PHPUpstream}};
+        fastcgi_next_upstream error timeout;
+        fastcgi_read_timeout 300s;
         fastcgi_index  index.php;
         fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
 {{if .PrefixDir}}        include        "{{.PrefixDir}}/conf/fastcgi_params";{{end}}
     }
-{{end}}
+{{end}}{{end}}
     access_log "{{.LogDir}}/{{.ServerName}}_access.log";
     error_log  "{{.LogDir}}/{{.ServerName}}_error.log";
 }

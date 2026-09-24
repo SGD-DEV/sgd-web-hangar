@@ -11,6 +11,7 @@ import (
 
 	"github.com/devour-app/devour/app/config"
 	"github.com/devour-app/devour/app/logs"
+	"github.com/devour-app/devour/app/phpfcgi"
 	"github.com/devour-app/devour/app/portinfo"
 	"github.com/devour-app/devour/app/services"
 )
@@ -56,24 +57,25 @@ func parseBindFailedPort(errMsg string) (int, bool) {
 
 type Nginx struct {
 	services.BaseService
-	paths     config.Paths
-	store     *config.Store
-	logStore  *logs.Store
-	cmd       *exec.Cmd
-	phpCgiCmd *exec.Cmd
-	mu        sync.Mutex
-	version   string
+	paths    config.Paths
+	store    *config.Store
+	logStore *logs.Store
+	php      *phpfcgi.Pool
+	cmd      *exec.Cmd
+	mu       sync.Mutex
+	version  string
 }
 
-func New(paths config.Paths, store *config.Store, logStore *logs.Store) *Nginx {
+func New(paths config.Paths, store *config.Store, logStore *logs.Store, php *phpfcgi.Pool) *Nginx {
 	return &Nginx{
 		BaseService: services.BaseService{
 			ServiceName: "nginx",
-			ServicePort: 8080,
+			ServicePort: 80,
 		},
 		paths:    paths,
 		store:    store,
 		logStore: logStore,
+		php:      php,
 	}
 }
 
@@ -116,25 +118,6 @@ func (n *Nginx) Start() error {
 		return fmt.Errorf("nginx: generating config: %w", err)
 	}
 
-	// Start php-cgi as FastCGI listener on port 9000 for PHP processing.
-	// If no PHP version is configured the FastCGI backend never comes up
-	// and every .php request returns 502 with no clue why. Log loudly so
-	// the user knows to install/select a PHP version from the Packages page.
-	phpCgiPath := n.findPhpCgi()
-	if phpCgiPath == "" {
-		n.logStore.Add("nginx", "Warning: no PHP version is active — .php requests will return 502 Bad Gateway. Install/select a PHP version from the Packages page.")
-	} else {
-		n.phpCgiCmd = exec.Command(phpCgiPath, "-b", "127.0.0.1:9000")
-		n.phpCgiCmd.Dir = filepath.Dir(phpCgiPath)
-		services.HideWindow(n.phpCgiCmd)
-		if err := n.phpCgiCmd.Start(); err != nil {
-			n.logStore.Add("nginx", fmt.Sprintf("Warning: could not start php-cgi: %v", err))
-		} else {
-			n.logStore.Add("nginx", fmt.Sprintf("php-cgi started on 127.0.0.1:9000 (PID: %d)", n.phpCgiCmd.Process.Pid))
-			go func() { n.phpCgiCmd.Wait() }()
-		}
-	}
-
 	// Pre-flight: run `nginx -t` to validate the config. If it fails (bad
 	// vhost, port already in use, missing file referenced from a directive)
 	// the error message from nginx itself is far more useful than the
@@ -144,10 +127,6 @@ func (n *Nginx) Start() error {
 	testCmd.Dir = prefixDir
 	services.HideWindow(testCmd)
 	if testOutput, testErr := testCmd.CombinedOutput(); testErr != nil {
-		// Stop php-cgi we just spawned - nginx isn't going to come up.
-		if n.phpCgiCmd != nil && n.phpCgiCmd.Process != nil {
-			n.phpCgiCmd.Process.Kill()
-		}
 		errMsg := strings.TrimSpace(string(testOutput))
 		// If nginx blamed a bind() failure on a specific port, find who's
 		// holding it and append PID+name to the error. The frontend parses
@@ -162,15 +141,16 @@ func (n *Nginx) Start() error {
 		return fmt.Errorf("nginx: %s", errMsg)
 	}
 
+	if err := n.php.EnsureRunning(); err != nil {
+		n.logStore.AddWithLevel("nginx", "PHP workers: "+err.Error(), "warn")
+	}
+
 	n.cmd = exec.Command(nginxPath, "-p", prefixDir, "-c", confPath)
 	n.cmd.Dir = prefixDir
 	services.HideWindow(n.cmd)
 
 	if err := n.cmd.Start(); err != nil {
-		// Stop php-cgi if nginx fails to start
-		if n.phpCgiCmd != nil && n.phpCgiCmd.Process != nil {
-			n.phpCgiCmd.Process.Kill()
-		}
+		n.php.StopAll()
 		n.LastError = err.Error()
 		return fmt.Errorf("nginx: starting: %w", err)
 	}
@@ -212,12 +192,7 @@ func (n *Nginx) Stop() error {
 		}
 	}
 
-	// Also stop php-cgi
-	if n.phpCgiCmd != nil && n.phpCgiCmd.Process != nil {
-		n.phpCgiCmd.Process.Kill()
-		n.phpCgiCmd = nil
-		n.logStore.Add("nginx", "php-cgi stopped")
-	}
+	n.php.StopAll()
 
 	n.Running = false
 	n.ProcessPID = 0
@@ -341,20 +316,6 @@ func (n *Nginx) findNginxIn(dir string) string {
 	return ""
 }
 
-// findPhpCgi locates php-cgi.exe for the active PHP version
-func (n *Nginx) findPhpCgi() string {
-	cfg, err := n.store.GetAppConfig()
-	if err != nil || cfg.ActivePHP == "" {
-		return ""
-	}
-	phpDir := n.paths.PHPPath(cfg.ActivePHP)
-	cgiExe := filepath.Join(phpDir, "php-cgi.exe")
-	if _, err := os.Stat(cgiExe); err == nil {
-		return cgiExe
-	}
-	return ""
-}
-
 func (n *Nginx) waitForExit() {
 	startTime := n.StartTime
 	if n.cmd != nil {
@@ -410,6 +371,11 @@ func (n *Nginx) generateConfig(confPath, prefixDir string) error {
 	docRoot := n.paths.WwwPath()
 	os.MkdirAll(docRoot, 0755)
 
+	defaultUpstream := ""
+	if cfg, err := n.store.GetAppConfig(); err == nil && n.php.HasVersion(cfg.ActivePHP) {
+		defaultUpstream = phpfcgi.UpstreamName(cfg.ActivePHP)
+	}
+
 	data := map[string]interface{}{
 		"WorkerProcesses":   1,
 		"WorkerConnections": 1024,
@@ -419,6 +385,8 @@ func (n *Nginx) generateConfig(confPath, prefixDir string) error {
 		"LogDir":            filepath.ToSlash(n.paths.LogsPath()),
 		"ConfDir":           filepath.ToSlash(n.paths.ConfPath("nginx")),
 		"PrefixDir":         filepath.ToSlash(prefixDir),
+		"Upstreams":         n.php.Upstreams(),
+		"DefaultUpstream":   defaultUpstream,
 	}
 
 	return renderTemplateStr(nginxConfTmpl, confPath, data)

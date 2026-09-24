@@ -28,6 +28,7 @@ import (
 	"github.com/devour-app/devour/app/mcp"
 	"github.com/devour-app/devour/app/packages"
 	"github.com/devour-app/devour/app/php"
+	"github.com/devour-app/devour/app/phpfcgi"
 	"github.com/devour-app/devour/app/projects"
 	"github.com/devour-app/devour/app/services"
 	"github.com/devour-app/devour/app/services/apache"
@@ -40,6 +41,7 @@ import (
 	"github.com/devour-app/devour/app/services/postgresql"
 	"github.com/devour-app/devour/app/ssl"
 	"github.com/devour-app/devour/app/syspath"
+	"github.com/devour-app/devour/app/tunnel"
 )
 
 // Level mirrors the small log severity set the Wails runtime uses
@@ -142,6 +144,8 @@ type Core struct {
 	Config         *config.Store
 	Logs           *logs.Store
 	PathManager    syspath.Manager
+	PHPPool        *phpfcgi.Pool
+	Tunnel         *tunnel.Manager
 	ServiceManager *services.Manager
 	PHPManager     *php.Manager
 	ProjectManager *projects.Manager
@@ -195,9 +199,11 @@ func Bootstrap(opts Options, log Logger) (*Core, error) {
 		PathManager: pathMgr,
 	}
 
+	c.PHPPool = phpfcgi.New(paths, store, c.Logs)
+
 	c.ServiceManager = services.NewManager()
-	c.ServiceManager.Register("apache", apache.New(paths, store, c.Logs))
-	c.ServiceManager.Register("nginx", nginx.New(paths, store, c.Logs))
+	c.ServiceManager.Register("apache", apache.New(paths, store, c.Logs, c.PHPPool))
+	c.ServiceManager.Register("nginx", nginx.New(paths, store, c.Logs, c.PHPPool))
 	c.ServiceManager.Register("caddy", caddy.New(paths, store, c.Logs))
 	c.ServiceManager.Register("mysql", mysql.New(paths, store, c.Logs))
 	c.ServiceManager.Register("postgresql", postgresql.New(paths, store, c.Logs))
@@ -210,18 +216,20 @@ func Bootstrap(opts Options, log Logger) (*Core, error) {
 	c.SSLManager = ssl.NewManager(paths, store)
 	c.ProjectManager.SetSSLGenerator(projects.NewSSLAdapter(c.SSLManager))
 
+	c.Tunnel = tunnel.NewManager(paths, store)
 	c.DNSServer = dns.NewServer(store)
 	c.MCPServer = mcp.NewServer(c.ServiceManager, c.PHPManager, c.ProjectManager, c.Logs, c.Config, paths)
 	c.PackageManager = packages.NewManager(paths, store, opts.PackageEmitter)
 	c.BootstrapMgr = bootstrap.NewManager(paths, c.PackageManager, opts.PackageEmitter)
 
-	// Sync ProjectsRoot + active PHP into the config so existing flows
-	// (CLI php switch, MCP list_projects) see correct defaults.
+	// Fill in ProjectsRoot + active PHP defaults so existing flows (CLI php
+	// switch, MCP list_projects) see sensible values. A user-chosen
+	// ProjectsRoot is kept: this used to overwrite it on every launch, so
+	// the Settings field never stuck.
 	if appCfg, err := store.GetAppConfig(); err == nil {
-		changed := false
-		correctRoot := paths.ProjectsPath()
-		if appCfg.ProjectsRoot != correctRoot {
-			appCfg.ProjectsRoot = correctRoot
+		changed := migrateConfig(&appCfg)
+		if appCfg.ProjectsRoot == "" {
+			appCfg.ProjectsRoot = paths.ProjectsPath()
 			changed = true
 		}
 		if appCfg.ActivePHP == "" {
@@ -237,6 +245,7 @@ func Bootstrap(opts Options, log Logger) (*Core, error) {
 
 	if opts.AutoScanProjects {
 		c.ProjectManager.Scan()
+		c.ProjectManager.RelinkAll()
 	}
 
 	if opts.AutoCreateConfigs {
@@ -273,6 +282,9 @@ func (c *Core) Shutdown() {
 	if c.ServiceManager != nil {
 		c.ServiceManager.StopAll()
 	}
+	if c.PHPPool != nil {
+		c.PHPPool.StopAll()
+	}
 	if c.Config != nil {
 		_ = c.Config.Close()
 	}
@@ -293,6 +305,38 @@ func (c *Core) ensureServiceConfigs(log Logger) {
 			}
 		}
 	}
+}
+
+// migrateConfig upgrades a config written by an older Hangar. Returns true
+// when anything changed.
+func migrateConfig(cfg *config.AppConfig) bool {
+	if cfg.SchemaVersion >= config.CurrentSchemaVersion {
+		return false
+	}
+	if cfg.SchemaVersion < 1 {
+		// Apache and Nginx now take turns on the same port instead of
+		// Nginx hiding on 8080, so switching servers keeps URLs working.
+		if cfg.NginxPort == 0 || cfg.NginxPort == 8080 {
+			cfg.NginxPort = 80
+		}
+		if cfg.ApachePort == 0 {
+			cfg.ApachePort = 80
+		}
+		if cfg.ActiveWebServer == "" {
+			cfg.ActiveWebServer = "apache"
+		}
+		if cfg.PHPWorkers == 0 {
+			cfg.PHPWorkers = 4
+		}
+		if cfg.TunnelServiceName == "" {
+			cfg.TunnelServiceName = "Cloudflared"
+		}
+		// The setting existed but was never honoured; turn it on so a
+		// reboot brings running services back.
+		cfg.AutoStartAll = true
+	}
+	cfg.SchemaVersion = config.CurrentSchemaVersion
+	return true
 }
 
 // ErrAlreadyRunning signals that bbolt couldn't lock the config DB,

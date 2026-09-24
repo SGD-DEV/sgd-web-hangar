@@ -11,6 +11,7 @@ import (
 
 	"github.com/devour-app/devour/app/config"
 	"github.com/devour-app/devour/app/logs"
+	"github.com/devour-app/devour/app/phpfcgi"
 	"github.com/devour-app/devour/app/portinfo"
 	"github.com/devour-app/devour/app/services"
 )
@@ -58,12 +59,13 @@ type Apache struct {
 	paths    config.Paths
 	store    *config.Store
 	logStore *logs.Store
+	php      *phpfcgi.Pool
 	cmd      *exec.Cmd
 	mu       sync.Mutex
 	version  string
 }
 
-func New(paths config.Paths, store *config.Store, logStore *logs.Store) *Apache {
+func New(paths config.Paths, store *config.Store, logStore *logs.Store, php *phpfcgi.Pool) *Apache {
 	return &Apache{
 		BaseService: services.BaseService{
 			ServiceName: "apache",
@@ -72,6 +74,7 @@ func New(paths config.Paths, store *config.Store, logStore *logs.Store) *Apache 
 		paths:    paths,
 		store:    store,
 		logStore: logStore,
+		php:      php,
 	}
 }
 
@@ -137,12 +140,17 @@ func (a *Apache) Start() error {
 		return fmt.Errorf("apache: %s", errMsg)
 	}
 
+	if err := a.php.EnsureRunning(); err != nil {
+		a.logStore.AddWithLevel("apache", "PHP workers: "+err.Error(), "warn")
+	}
+
 	a.cmd = exec.Command(httpdPath, "-f", confPath)
 	a.cmd.Dir = filepath.Dir(httpdPath)
 	services.HideWindow(a.cmd)
 
 	if err := a.cmd.Start(); err != nil {
 		a.LastError = err.Error()
+		a.php.StopAll()
 		return fmt.Errorf("apache: starting: %w", err)
 	}
 
@@ -169,6 +177,7 @@ func (a *Apache) Stop() error {
 	if err := a.cmd.Process.Kill(); err != nil {
 		return fmt.Errorf("apache: stopping: %w", err)
 	}
+	a.php.StopAll()
 
 	a.Running = false
 	a.ProcessPID = 0
@@ -317,75 +326,27 @@ func (a *Apache) generateConfig(confPath, serverRoot string) error {
 	docRoot := a.paths.WwwPath()
 	os.MkdirAll(docRoot, 0755)
 
-	phpInfo := a.findPHP()
-
 	sslEnabled := false
+	defaultUpstream := ""
 	if cfg, err := a.store.GetAppConfig(); err == nil {
 		sslEnabled = cfg.SSLEnabled
-	}
-
-	data := map[string]interface{}{
-		"ServerRoot":   filepath.ToSlash(serverRoot),
-		"Listen":       a.ServicePort,
-		"DocumentRoot": filepath.ToSlash(docRoot),
-		"LogDir":       filepath.ToSlash(a.paths.LogsPath()),
-		"ConfDir":      filepath.ToSlash(a.paths.ConfPath("apache")),
-		"PHPModule":    phpInfo.ModulePath,
-		"PHPIniDir":    phpInfo.IniDir,
-		"PHPCgiExe":    phpInfo.CgiExe,
-		"PHPCgiDir":    phpInfo.CgiDir,
-		"SSLEnabled":   sslEnabled,
-	}
-
-	return renderTemplateStr(httpdConfTmpl, confPath, data)
-}
-
-type phpInfo struct {
-	ModulePath string // path to php8apache2_4.dll (empty if not found)
-	IniDir     string // path to php directory for PHPIniDir
-	CgiExe     string // path to php-cgi.exe (empty if not found)
-	CgiDir     string // directory containing php-cgi.exe (with trailing slash)
-}
-
-// findPHP locates the PHP Apache module DLL or php-cgi.exe for the active PHP version.
-func (a *Apache) findPHP() phpInfo {
-	cfg, err := a.store.GetAppConfig()
-	if err != nil || cfg.ActivePHP == "" {
-		return phpInfo{}
-	}
-
-	phpDir := a.paths.PHPPath(cfg.ActivePHP)
-	if _, err := os.Stat(phpDir); os.IsNotExist(err) {
-		return phpInfo{}
-	}
-
-	info := phpInfo{
-		IniDir: filepath.ToSlash(phpDir),
-	}
-
-	// Check for php-cgi.exe (always useful as fallback)
-	cgiExe := filepath.Join(phpDir, "php-cgi.exe")
-	if _, err := os.Stat(cgiExe); err == nil {
-		info.CgiExe = filepath.ToSlash(cgiExe)
-		info.CgiDir = filepath.ToSlash(phpDir) + "/"
-	}
-
-	// Look for php*apache2_4.dll (mod_php — preferred)
-	entries, err := os.ReadDir(phpDir)
-	if err != nil {
-		return info
-	}
-	for _, e := range entries {
-		name := e.Name()
-		if !e.IsDir() &&
-			(name == "php8apache2_4.dll" || name == "php7apache2_4.dll" ||
-				name == "php_apache2_4.dll") {
-			info.ModulePath = filepath.ToSlash(filepath.Join(phpDir, name))
-			return info
+		if a.php.HasVersion(cfg.ActivePHP) {
+			defaultUpstream = phpfcgi.UpstreamName(cfg.ActivePHP)
 		}
 	}
 
-	return info
+	data := map[string]interface{}{
+		"ServerRoot":      filepath.ToSlash(serverRoot),
+		"Listen":          a.ServicePort,
+		"DocumentRoot":    filepath.ToSlash(docRoot),
+		"LogDir":          filepath.ToSlash(a.paths.LogsPath()),
+		"ConfDir":         filepath.ToSlash(a.paths.ConfPath("apache")),
+		"Upstreams":       a.php.Upstreams(),
+		"DefaultUpstream": defaultUpstream,
+		"SSLEnabled":      sslEnabled,
+	}
+
+	return renderTemplateStr(httpdConfTmpl, confPath, data)
 }
 
 func (a *Apache) GetConfPath() string {

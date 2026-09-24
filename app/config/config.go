@@ -36,6 +36,22 @@ type AppConfig struct {
 	NginxEnabled   bool              `json:"nginx_enabled"`
 	SSLEnabled     bool              `json:"ssl_enabled"`
 	Theme          string            `json:"theme"`
+
+	// SchemaVersion drives one-time migrations in core.Bootstrap.
+	SchemaVersion int `json:"schema_version"`
+	// ActiveWebServer is "apache" or "nginx": the one server that owns the
+	// HTTP port. Switching stops the other one (see App.SwitchWebServer).
+	ActiveWebServer string `json:"active_web_server"`
+	// PHPWorkers is the number of php-cgi FastCGI workers per PHP version.
+	PHPWorkers int `json:"php_workers"`
+	// DesiredServices remembers which services the user left running, so
+	// they come back after a reboot (AutoStartAll) and the watchdog can
+	// restart them when they crash.
+	DesiredServices []string `json:"desired_services"`
+	// Cloudflare Tunnel: path of the cloudflared config.yml the Tunnel page
+	// edits, and the Windows service that runs `cloudflared tunnel run`.
+	TunnelConfigPath  string `json:"tunnel_config_path"`
+	TunnelServiceName string `json:"tunnel_service_name"`
 }
 
 type ServiceConfig struct {

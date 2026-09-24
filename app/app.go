@@ -20,11 +20,13 @@ import (
 	"github.com/devour-app/devour/app/mcp"
 	"github.com/devour-app/devour/app/packages"
 	"github.com/devour-app/devour/app/php"
+	"github.com/devour-app/devour/app/phpfcgi"
 	"github.com/devour-app/devour/app/portinfo"
 	"github.com/devour-app/devour/app/projects"
 	"github.com/devour-app/devour/app/services"
 	"github.com/devour-app/devour/app/ssl"
 	"github.com/devour-app/devour/app/syspath"
+	"github.com/devour-app/devour/app/tunnel"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -33,6 +35,8 @@ type App struct {
 	config         *config.Store
 	paths          config.Paths
 	serviceManager *services.Manager
+	phpPool        *phpfcgi.Pool
+	tunnel         *tunnel.Manager
 	phpManager     *php.Manager
 	pathManager    syspath.Manager
 	projectManager *projects.Manager
@@ -104,6 +108,8 @@ func (a *App) Startup(ctx context.Context) {
 	a.logStore = c.Logs
 	a.pathManager = c.PathManager
 	a.serviceManager = c.ServiceManager
+	a.phpPool = c.PHPPool
+	a.tunnel = c.Tunnel
 	a.phpManager = c.PHPManager
 	a.projectManager = c.ProjectManager
 	a.sslManager = c.SSLManager
@@ -115,6 +121,10 @@ func (a *App) Startup(ctx context.Context) {
 	// php.ini is GUI-specific - it depends on Wails being live to push
 	// events, and CLI/daemon don't need it pre-warmed for short runs.
 	a.ensurePHPIni()
+
+	// Bring back the services that were running before the last shutdown
+	// or reboot, then keep an eye on them.
+	go a.autostartServices()
 
 	runtime.LogInfo(ctx, "devour: startup complete")
 }
@@ -179,6 +189,9 @@ func (a *App) Shutdown(ctx context.Context) {
 	if a.serviceManager != nil {
 		a.serviceManager.StopAll()
 	}
+	if a.phpPool != nil {
+		a.phpPool.StopAll()
+	}
 	if a.config != nil {
 		a.config.Close()
 	}
@@ -192,18 +205,12 @@ func (a *App) StartService(name string) error {
 		return fmt.Errorf("service manager not initialized")
 	}
 
-	// Before starting a web server, auto-setup everything
-	if name == "apache" || name == "nginx" {
-		// Ensure php.ini exists for active PHP version
-		a.ensurePHPIni()
-
-		// Auto-scan projects, generate vhosts, add hosts entries, generate SSL certs
-		if a.projectManager != nil {
-			if err := a.projectManager.EnsureProjectsReady(); err != nil {
-				runtime.LogWarningf(a.ctx, "devour: auto-setup projects: %v", err)
-			}
-		}
+	// Starting a web server while the other one runs means "switch": both
+	// use the same port, so stop the other one instead of failing.
+	if isWebServer(name) {
+		return a.SwitchWebServer(name)
 	}
+	a.setDesired(name, true)
 
 	// For database services, start asynchronously so the UI gets "starting"
 	// status immediately instead of blocking for minutes during initialization.
@@ -376,6 +383,7 @@ func (a *App) StopService(name string) error {
 	if a.serviceManager == nil {
 		return fmt.Errorf("service manager not initialized")
 	}
+	a.setDesired(name, false)
 	return a.serviceManager.Stop(name)
 }
 
@@ -410,6 +418,9 @@ func (a *App) StartAllServices() error {
 func (a *App) StopAllServices() error {
 	if a.serviceManager == nil {
 		return nil
+	}
+	for _, name := range a.serviceManager.Names() {
+		a.setDesired(name, false)
 	}
 	a.serviceManager.StopAll()
 	return nil
@@ -1917,38 +1928,17 @@ func (a *App) OpenPhpMyAdmin() (string, error) {
 		return "", fmt.Errorf("phpMyAdmin install dir found but no index.php inside %s", pmaBase)
 	}
 
-	// Ensure a "phpmyadmin" project entry exists so vhosts + hosts entry get
-	// generated through the normal flow. Idempotent - if one exists already,
-	// EnsureProjectsReady just regenerates its vhost.
-	if a.projectManager != nil {
-		const pmaName = "phpmyadmin"
-		const pmaDomain = "phpmyadmin.test"
-		// Check for an existing project; create one if missing.
-		existing, _ := a.projectManager.Get(pmaName)
-		if existing.Name == "" {
-			_, err := a.projectManager.CreateWithOptions(projects.CreateOptions{
-				Name:      pmaName,
-				Path:      pmaDir,
-				Domain:    pmaDomain,
-				Framework: "php",
-				WebServer: "apache",
-			})
-			if err != nil {
-				return "", fmt.Errorf("creating phpmyadmin project: %w", err)
-			}
-		}
-		_ = a.projectManager.EnsureProjectsReady()
+	if err := writePhpMyAdminConfig(pmaDir, a.dbPort("mysql")); err != nil {
+		return "", fmt.Errorf("writing phpMyAdmin config: %w", err)
 	}
-
-	// Auto-start Apache if neither web server is running.
-	if a.serviceManager != nil {
-		st, _ := a.serviceManager.Status("apache")
-		if st.Status != services.StatusRunning {
-			nst, _ := a.serviceManager.Status("nginx")
-			if nst.Status != services.StatusRunning {
-				_ = a.serviceManager.Start("apache")
-			}
-		}
+	// Register phpmyadmin.test as a local-only project (auto-login as root
+	// must never be reachable from the LAN or the tunnel), then make sure
+	// the active web server is up and serving it.
+	if err := a.ensureToolProject("phpmyadmin", "phpmyadmin.test", pmaDir); err != nil {
+		return "", fmt.Errorf("registering phpmyadmin.test: %w", err)
+	}
+	if err := a.ensureWebServer(); err != nil {
+		return "", err
 	}
 	return "http://phpmyadmin.test", nil
 }

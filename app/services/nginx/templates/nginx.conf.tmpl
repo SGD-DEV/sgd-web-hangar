@@ -10,27 +10,53 @@ http {
 
     sendfile        on;
     keepalive_timeout  65;
+    server_tokens   off;
+    client_max_body_size 128m;
+
+    gzip on;
+    gzip_types text/plain text/css text/xml application/javascript application/json image/svg+xml;
+
+    # Cloudflare Tunnel connects from localhost; take the visitor's address
+    # from the header cloudflared forwards.
+    set_real_ip_from 127.0.0.1;
+    set_real_ip_from ::1;
+    real_ip_header   CF-Connecting-IP;
 
     access_log "{{.LogDir}}/nginx_access.log";
     error_log  "{{.LogDir}}/nginx_error.log";
 
+    # PHP FastCGI worker pools managed by Hangar (see app/phpfcgi). One
+    # php-cgi process serves one request at a time, so each version gets
+    # several workers and nginx moves on to the next one when a worker is
+    # busy restarting.
+{{range .Upstreams}}    upstream {{.Name}} {
+{{range .Ports}}        server 127.0.0.1:{{.}} max_fails=0;
+{{end}}    }
+{{end}}
+    # Default site: answers any Host that matches no project.
     server {
-        listen       {{.Listen}};
+        listen       {{.Listen}} default_server;
         server_name  {{.ServerName}};
         root         "{{.DocumentRoot}}";
         index        index.php index.html index.htm;
 
-        location / {
-            try_files $uri $uri/ /index.php?$query_string;
+        location ~ /\. {
+            deny all;
         }
 
+        location / {
+            try_files $uri $uri/ =404;
+        }
+{{if .DefaultUpstream}}
         location ~ \.php$ {
-            fastcgi_pass   127.0.0.1:9000;
+            try_files      $uri =404;
+            fastcgi_pass   {{.DefaultUpstream}};
+            fastcgi_next_upstream error timeout;
             fastcgi_index  index.php;
             fastcgi_param  SCRIPT_FILENAME $document_root$fastcgi_script_name;
             include        "{{.PrefixDir}}/conf/fastcgi_params";
         }
-    }
+{{end}}    }
 
     include "{{.ConfDir}}/sites/*.conf";
 }

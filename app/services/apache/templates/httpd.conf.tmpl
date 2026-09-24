@@ -12,53 +12,98 @@ LoadModule mime_module modules/mod_mime.so
 LoadModule rewrite_module modules/mod_rewrite.so
 LoadModule setenvif_module modules/mod_setenvif.so
 LoadModule ssl_module modules/mod_ssl.so
+LoadModule socache_shmcb_module modules/mod_socache_shmcb.so
 LoadModule alias_module modules/mod_alias.so
-LoadModule actions_module modules/mod_actions.so
-LoadModule cgi_module modules/mod_cgi.so
-# Reverse-proxy modules - needed by Hangar's "Proxy" project type to forward
-# Python/Node/Go backends through Apache. Without these, vhosts that use
-# ProxyPass / ProxyPassReverse abort with "Invalid command 'ProxyPreserveHost'".
+LoadModule headers_module modules/mod_headers.so
+LoadModule deflate_module modules/mod_deflate.so
+LoadModule filter_module modules/mod_filter.so
+LoadModule expires_module modules/mod_expires.so
+LoadModule remoteip_module modules/mod_remoteip.so
+# Reverse proxy: "Proxy" projects (Python/Node/Go backends) and PHP, which
+# runs as a pool of FastCGI workers managed by Hangar (see app/phpfcgi).
 LoadModule proxy_module modules/mod_proxy.so
 LoadModule proxy_http_module modules/mod_proxy_http.so
 LoadModule proxy_wstunnel_module modules/mod_proxy_wstunnel.so
-LoadModule headers_module modules/mod_headers.so
+LoadModule proxy_fcgi_module modules/mod_proxy_fcgi.so
+LoadModule proxy_balancer_module modules/mod_proxy_balancer.so
+LoadModule lbmethod_byrequests_module modules/mod_lbmethod_byrequests.so
+LoadModule slotmem_shm_module modules/mod_slotmem_shm.so
 
 ServerAdmin admin@localhost
 ServerName localhost:{{.Listen}}
+ServerTokens Prod
+ServerSignature Off
+TraceEnable Off
+Timeout 300
 
-DocumentRoot "{{.DocumentRoot}}"
-<Directory "{{.DocumentRoot}}">
-    Options Indexes FollowSymLinks ExecCGI
-    AllowOverride All
-    Require all granted
-</Directory>
+LogFormat "%a %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" combined
+LogFormat "%a %l %u %t \"%r\" %>s %b" common
+ErrorLog "{{.LogDir}}/apache_error.log"
+CustomLog "{{.LogDir}}/apache_access.log" combined
+
+# Cloudflare Tunnel connects from localhost; take the visitor's address from
+# the header cloudflared forwards so logs and access rules see the real IP.
+RemoteIPHeader CF-Connecting-IP
+RemoteIPInternalProxy 127.0.0.1 ::1
+
+<IfModule mime_module>
+    TypesConfig "{{.ServerRoot}}/conf/mime.types"
+</IfModule>
+
+<IfModule ssl_module>
+    SSLSessionCache "shmcb:{{.LogDir}}/ssl_scache(512000)"
+    SSLSessionCacheTimeout 300
+</IfModule>
+
+AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml application/javascript application/json image/svg+xml
 
 <IfModule dir_module>
     DirectoryIndex index.php index.html
 </IfModule>
 
-ErrorLog "{{.LogDir}}/apache_error.log"
-CustomLog "{{.LogDir}}/apache_access.log" combined
-
-<IfModule mime_module>
-    TypesConfig "{{.ServerRoot}}/conf/mime.types"
-</IfModule>
-{{if .PHPCgiExe}}
-# PHP via CGI. Without this block Apache serves index.php as a download:
-# AddType alone only labels the Content-Type as application/x-httpd-php,
-# which the browser doesn't know how to render so it offers to save the
-# file. Routing .php through php-cgi.exe via Action + ScriptAlias makes
-# Apache actually execute PHP and return the rendered HTML.
-ScriptAlias /__hangar-php-cgi/ "{{.PHPCgiDir}}"
-<Directory "{{.PHPCgiDir}}">
-    AllowOverride None
-    Options None
-    Require all granted
-</Directory>
-<FilesMatch "\.php$">
-    SetHandler application/x-httpd-php
-</FilesMatch>
-Action application/x-httpd-php "/__hangar-php-cgi/php-cgi.exe"
+# PHP FastCGI backends, one balancer per installed PHP version (the trailing
+# slash in the balancer name is required for SetHandler to find it).
+# mod_proxy_fcgi sends SCRIPT_FILENAME as "proxy:fcgi://host:port/C:/...",
+# which only PHP-FPM understands; php-cgi answers "No input file specified".
+# Strip the prefix so php-cgi gets the plain file path.
+ProxyTimeout 300
+ProxyFCGISetEnvIf "reqenv('SCRIPT_FILENAME') =~ m#^proxy:fcgi://[^/]+/(.*)$#" SCRIPT_FILENAME "$1"
+{{range .Upstreams}}
+<Proxy "balancer://{{.Name}}/">
+{{range .Ports}}    BalancerMember "fcgi://127.0.0.1:{{.}}" retry=1
+{{end}}</Proxy>
 {{end}}
+<Directory />
+    AllowOverride None
+    Require all denied
+</Directory>
+
+# Block dotfiles (.env, .git, .htpasswd ...) everywhere.
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+<DirectoryMatch "/\.(git|svn|hg)">
+    Require all denied
+</DirectoryMatch>
+
+DocumentRoot "{{.DocumentRoot}}"
+
+# Default site. It must be the first vhost: Apache answers any request whose
+# Host matches no project with the first vhost it loaded, and that must not
+# be some project (or phpMyAdmin) by accident.
+<VirtualHost _default_:{{.Listen}}>
+    ServerName localhost
+    DocumentRoot "{{.DocumentRoot}}"
+    <Directory "{{.DocumentRoot}}">
+        Options FollowSymLinks
+        AllowOverride All
+        Require all granted
+{{if .DefaultUpstream}}        <FilesMatch "\.php$">
+            <If "-f %{REQUEST_FILENAME}">
+                SetHandler "proxy:balancer://{{.DefaultUpstream}}/"
+            </If>
+        </FilesMatch>
+{{end}}    </Directory>
+</VirtualHost>
 
 IncludeOptional "{{.ConfDir}}/vhosts/*.conf"

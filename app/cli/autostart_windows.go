@@ -70,9 +70,10 @@ func autostartEnable() error {
 		return fmt.Errorf("locating self: %w", err)
 	}
 
-	// Quoted full path + the `daemon` arg. Quoted because the path
-	// may contain spaces (C:\Program Files\Hangar\hangar.exe).
-	value := fmt.Sprintf(`"%s" daemon`, exe)
+	// Quoted full path + the background flag: the GUI process starts
+	// hidden in the tray and brings back the services that were running.
+	// Quoted because the path may contain spaces.
+	value := fmt.Sprintf(`"%s" %s`, exe, BackgroundFlag)
 
 	key, _, err := registry.CreateKey(registry.CURRENT_USER, runKey, registry.SET_VALUE)
 	if err != nil {
@@ -84,7 +85,7 @@ func autostartEnable() error {
 		return fmt.Errorf("writing Run value: %w", err)
 	}
 	fmt.Printf("Autostart ENABLED.\n  HKCU\\%s\\%s = %s\n", runKey, autostartVal, value)
-	fmt.Println("  Hangar daemon will launch at next Windows login.")
+	fmt.Println("  Hangar will start in the tray at the next Windows login.")
 	return nil
 }
 
