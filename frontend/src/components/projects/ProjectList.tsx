@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { FolderOpen, Plus, Trash2, Search, X, Loader2, Lock, Unlock, Pencil, Globe, Home, ShieldCheck, Copy } from 'lucide-react'
+import { FolderOpen, Plus, Trash2, Search, X, Loader2, Lock, Unlock, Pencil, Globe, Home, ShieldCheck, Copy, Database, Mail, GitBranch } from 'lucide-react'
 import { call, toast, useAction, errorMessage } from '../../lib/api'
 import { Button, Modal, Field, inputCls } from '../ui/Controls'
+import { DatabaseDialog, MailDialog, GitDialog } from './ProjectTools'
 
 export interface Project {
   name: string
@@ -15,6 +16,27 @@ export interface Project {
   document_root: string
   proxy_target?: string
   local_only?: boolean
+  database?: ProjectDatabase
+  mail?: ProjectMail
+}
+
+export interface ProjectDatabase {
+  type: string
+  host: string
+  port: number
+  name: string
+  user: string
+  password: string
+}
+
+export interface ProjectMail {
+  host: string
+  port: number
+  user: string
+  password: string
+  encryption: string
+  from_email: string
+  from_name: string
 }
 
 interface PHPVersion {
@@ -39,6 +61,7 @@ export default function ProjectList() {
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [editing, setEditing] = useState<Project | null>(null)
+  const [tool, setTool] = useState<{ kind: 'db' | 'mail' | 'git'; project: Project } | null>(null)
   const [projectsRoot, setProjectsRoot] = useState('')
   const [phpVersions, setPhpVersions] = useState<PHPVersion[]>([])
   const [webServer, setWebServer] = useState('apache')
@@ -125,12 +148,22 @@ export default function ProjectList() {
         <CreateProject
           projectsRoot={projectsRoot}
           onClose={() => setShowCreate(false)}
-          onCreated={async (name) => {
+          onCreated={async (name, detail) => {
             setShowCreate(false)
             await loadProjects()
-            toast.success(`Project ${name} created`, 'Use the pencil icon to add a public domain for the Cloudflare Tunnel.')
+            toast.success(`Project ${name} created`, detail || 'Use the pencil icon to add a public domain for the Cloudflare Tunnel.')
           }}
         />
+      )}
+
+      {tool?.kind === 'db' && (
+        <DatabaseDialog project={tool.project} onClose={() => setTool(null)} onChanged={() => loadProjects()} />
+      )}
+      {tool?.kind === 'mail' && (
+        <MailDialog project={tool.project} onClose={() => setTool(null)} onChanged={() => loadProjects()} />
+      )}
+      {tool?.kind === 'git' && (
+        <GitDialog project={tool.project} onClose={() => setTool(null)} />
       )}
 
       {editing && (
@@ -198,6 +231,19 @@ export default function ProjectList() {
                   >
                     {p.ssl_enabled ? <Lock size={13} /> : <Unlock size={13} />}
                   </IconButton>
+                  <IconButton onClick={() => setTool({ kind: 'db', project: p })}
+                    title={p.database ? `Database: ${p.database.name} (${p.database.type})` : 'Database - create or assign one'}
+                    className={p.database ? 'text-status-green' : ''}>
+                    <Database size={13} />
+                  </IconButton>
+                  <IconButton onClick={() => setTool({ kind: 'mail', project: p })}
+                    title={p.mail ? `Mail via ${p.mail.host}` : 'Mail - currently Mailpit (testing)'}
+                    className={p.mail ? 'text-status-green' : ''}>
+                    <Mail size={13} />
+                  </IconButton>
+                  {p.framework !== 'proxy' && (
+                    <IconButton onClick={() => setTool({ kind: 'git', project: p })} title="Git - pull, commit & push"><GitBranch size={13} /></IconButton>
+                  )}
                   <IconButton onClick={() => openFolder(p)} title="Open folder in Explorer"><FolderOpen size={13} /></IconButton>
                   <IconButton onClick={() => setEditing(p)} title="Edit project"><Pencil size={13} /></IconButton>
                   <IconButton onClick={() => confirmRemove(p)} title="Remove project" className="hover:!text-status-red"><Trash2 size={13} /></IconButton>
@@ -361,16 +407,18 @@ const frameworks = [
   { value: 'plain', label: 'Plain PHP', placeholder: '', description: 'Empty folder, no scaffolding' },
   { value: 'laravel', label: 'Laravel', placeholder: '11.*', description: 'composer create-project laravel/laravel' },
   { value: 'symfony', label: 'Symfony', placeholder: '7.*', description: 'composer create-project symfony/skeleton' },
-  { value: 'wordpress', label: 'WordPress', placeholder: '', description: 'wp-cli core download' },
+  { value: 'wordpress', label: 'WordPress', placeholder: '', description: 'latest German version, database included' },
+  { value: 'clone', label: 'Clone from Git', placeholder: '', description: 'https URL of a GitHub / GitLab / Gitea repository' },
   { value: 'proxy', label: 'Proxy', placeholder: '', description: 'Forward to an app already running (Node, Python, Go, ...)' },
 ]
 
 function CreateProject({ projectsRoot, onClose, onCreated }: {
   projectsRoot: string
   onClose: () => void
-  onCreated: (name: string) => void
+  onCreated: (name: string, detail?: string) => void
 }) {
-  const [p, setP] = useState({ name: '', framework: 'plain', version: '', proxyTarget: '', path: '', laravelDocRoot: 'public' })
+  const [p, setP] = useState({ name: '', framework: 'plain', version: '', proxyTarget: '', path: '', laravelDocRoot: 'public', gitUrl: '' })
+  const [nameTouched, setNameTouched] = useState(false)
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const set = (patch: Partial<typeof p>) => setP(prev => ({ ...prev, ...patch }))
@@ -381,7 +429,11 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
     setError('')
     setCreating(true)
     try {
-      if (p.framework === 'proxy' || p.framework === 'plain') {
+      let detail: string | undefined
+      if (p.framework === 'clone') {
+        await call('CloneProject', { url: p.gitUrl.trim(), name, path: p.path.trim() })
+        detail = 'Cloned. Run composer install / npm install in the terminal if the project needs it.'
+      } else if (p.framework === 'proxy' || p.framework === 'plain') {
         await call('CreateProjectWithOptions', {
           name,
           path: p.path.trim(),
@@ -392,13 +444,14 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
       } else {
         const result = await call<Record<string, string>>('CreateProjectWithFramework', p.framework, name, p.version)
         if (result?.error) throw new Error(result.error)
+        if (p.framework === 'wordpress') detail = result?.output
         if (p.framework === 'laravel' && p.laravelDocRoot === 'root') {
           const all = await call<Project[]>('GetProjects')
           const me = all.find(x => x.name === name)
           if (me) await call('UpdateProjectSettings', name, settingsOf(me, { document_root: me.path }))
         }
       }
-      onCreated(name)
+      onCreated(name, detail)
     } catch (e) {
       setError(errorMessage(e))
     } finally {
@@ -414,9 +467,19 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
       </div>
       <div className="space-y-3">
         <Field label="Project name" hint={name ? <>Local address: <span className="font-mono">http://{name.toLowerCase()}.test</span></> : undefined}>
-          <input className={inputCls} value={p.name} onChange={e => set({ name: e.target.value })} placeholder="my-site" disabled={creating} autoFocus />
+          <input className={inputCls} value={p.name} onChange={e => { setNameTouched(true); set({ name: e.target.value }) }} placeholder="my-site" disabled={creating} autoFocus />
         </Field>
-        {p.framework !== 'proxy' && (
+        {p.framework === 'clone' && (
+          <Field label="Repository URL" hint="https only. For private repositories Git opens a login window (Git Credential Manager) and remembers it.">
+            <input className={inputCls} value={p.gitUrl} disabled={creating} placeholder="https://github.com/user/repo.git"
+              onChange={e => {
+                const gitUrl = e.target.value
+                const base = gitUrl.trim().replace(/\/+$/, '').split('/').pop()?.replace(/\.git$/i, '') || ''
+                set(nameTouched ? { gitUrl } : { gitUrl, name: base.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') })
+              }} />
+          </Field>
+        )}
+        {p.framework !== 'proxy' && p.framework !== 'wordpress' && (
           <Field label="Folder" hint={p.path ? undefined : <>Leave empty to use <span className="font-mono">{projectsRoot}\{name || 'my-site'}</span></>}>
             <div className="flex gap-2">
               <input className={inputCls} value={p.path} onChange={e => set({ path: e.target.value })} disabled={creating} placeholder={`${projectsRoot}\\${name || 'my-site'}`} />
@@ -451,7 +514,7 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
           </Field>
         )}
         {error && <div className="text-xs text-status-red whitespace-pre-wrap">{error}</div>}
-        <Button variant="primary" busy={creating} disabled={!name} onClick={create}>
+        <Button variant="primary" busy={creating} disabled={!name || (p.framework === 'clone' && !/^https:\/\/[^/]+\/.+/.test(p.gitUrl.trim()))} onClick={create}>
           {creating ? (p.framework === 'plain' || p.framework === 'proxy' ? 'Creating...' : 'Installing - this can take a few minutes...') : 'Create'}
         </Button>
       </div>

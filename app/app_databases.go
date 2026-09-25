@@ -434,7 +434,7 @@ $cfg['TempDir'] = __DIR__ . '/tmp';
 }
 
 func downloadFile(url, dest string) error {
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := &http.Client{Timeout: 10 * time.Minute} // WordPress is ~30 MB
 	resp, err := client.Get(url)
 	if err != nil {
 		return err

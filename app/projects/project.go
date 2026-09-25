@@ -28,6 +28,30 @@ type Project struct {
 	// password: Apache listens on every interface, so without this anyone
 	// on the LAN could reach them by sending the right Host header.
 	LocalOnly bool `json:"local_only,omitempty"`
+	// Database is the database assigned to the project. Hangar writes it
+	// into the project's config (wp-config.php or .env).
+	Database *Database `json:"database,omitempty"`
+	// Mail is the SMTP server the project sends through. Nil means Mailpit.
+	Mail *Mail `json:"mail,omitempty"`
+}
+
+type Database struct {
+	Type     string `json:"type"` // "mysql" | "postgresql"
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Name     string `json:"name"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+}
+
+type Mail struct {
+	Host       string `json:"host"`
+	Port       int    `json:"port"`
+	User       string `json:"user"`
+	Password   string `json:"password"`
+	Encryption string `json:"encryption"` // "" | "tls" (STARTTLS) | "ssl"
+	FromEmail  string `json:"from_email"`
+	FromName   string `json:"from_name"`
 }
 
 type Framework string

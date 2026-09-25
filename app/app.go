@@ -246,6 +246,8 @@ func (a *App) StartService(name string) error {
 //   pdo_sqlite          - Laravel's default DB driver since v11
 //   pdo_mysql           - connect to the MySQL service Devour ships
 //   pdo_pgsql           - connect to the PostgreSQL service Devour ships
+//   mysqli              - WordPress database driver (hard requirement)
+//   gd, exif, intl      - WordPress image editing, photo metadata, Site Health
 //
 // Not in the list (intentionally), because they're statically compiled into
 // Windows PHP builds and don't need an extension= line:
@@ -262,6 +264,10 @@ var defaultPHPExtensions = []string{
 	"pdo_sqlite",
 	"pdo_mysql",
 	"pdo_pgsql",
+	"mysqli",
+	"gd",
+	"exif",
+	"intl",
 }
 
 // ensurePHPIni creates php.ini from php.ini-production if it doesn't exist for
@@ -995,7 +1001,14 @@ func (a *App) GetPHPExtensions(version string) []php.ExtensionInfo {
 }
 
 func (a *App) TogglePHPExtension(version, extName string, enable bool) error {
-	return a.phpManager.ToggleExtension(version, extName, enable)
+	if err := a.phpManager.ToggleExtension(version, extName, enable); err != nil {
+		return err
+	}
+	// The FastCGI workers only read php.ini at start.
+	if a.phpPool != nil {
+		return a.phpPool.RestartVersion(version)
+	}
+	return nil
 }
 
 // --- Per-project PHP version ---
@@ -1347,23 +1360,13 @@ func (a *App) CreateProjectWithFramework(framework, name, version string) map[st
 		}
 
 	case "wordpress":
-		// For WordPress, we download and extract. Use WP-CLI if available, otherwise basic download.
-		// Simple approach: use composer create-project for bedrock, or just create dir with index.php
-		os.MkdirAll(projectPath, 0755)
-		// Create a placeholder — user should download WordPress manually or we can use a wp-cli
-		indexContent := `<?php
-// WordPress installation
-// Download WordPress from https://wordpress.org/download/
-// and extract it into this directory.
-echo "<h1>WordPress - Placeholder</h1>";
-echo "<p>Download WordPress from <a href='https://wordpress.org/download/'>wordpress.org</a> and extract here.</p>";
-`
-		os.WriteFile(filepath.Join(projectPath, "index.php"), []byte(indexContent), 0644)
-		os.WriteFile(filepath.Join(projectPath, "wp-config-sample.php"), []byte("<?php // wp-config sample\n"), 0644)
-		result["output"] = "WordPress project directory created. Download WordPress and extract into: " + projectPath
-		// Register the project
-		a.projectManager.Create(name, projectPath, "")
-		a.projectManager.Scan()
+		msg, err := a.installWordPress(name, projectPath)
+		if err != nil {
+			os.RemoveAll(projectPath)
+			result["error"] = err.Error()
+			return result
+		}
+		result["output"] = msg
 		return result
 
 	case "plain":

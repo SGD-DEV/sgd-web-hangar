@@ -244,6 +244,27 @@ func (p *Pool) EnsureRunning() error {
 	return firstErr
 }
 
+// RestartVersion restarts the workers of one PHP version so a php.ini change
+// (e.g. a newly enabled extension) takes effect. A version that isn't
+// running is left alone.
+func (p *Pool) RestartVersion(version string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	vp, ok := p.versions[version]
+	if !ok {
+		return nil
+	}
+	n := len(vp.workers)
+	vp.stopAll()
+	delete(p.versions, version)
+	vp, err := p.startVersion(version, n)
+	if err != nil {
+		return err
+	}
+	p.versions[version] = vp
+	return nil
+}
+
 // StopAll terminates every worker. Called when no web server is running.
 func (p *Pool) StopAll() {
 	p.mu.Lock()
