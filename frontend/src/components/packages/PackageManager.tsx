@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Download, Check, Trash2, Loader2, Package, Zap, AlertCircle, Plus, Link as LinkIcon, ExternalLink } from 'lucide-react'
+import { confirmDialog, toast } from '../../lib/api'
 
 interface CategoryInfo {
   id: string
@@ -139,10 +140,19 @@ export default function PackageManager() {
     }
   }
 
-  async function handleRemove(name: string, version: string) {
+  async function handleRemove(name: string, version: string, label: string, active: boolean) {
+    const ok = await confirmDialog({
+      title: `${label} deinstallieren?`,
+      message: (active ? 'Das ist die aktive Version. Läuft sie als Dienst, wird sie vorher gestoppt und nicht mehr automatisch gestartet.\n' : '')
+        + 'Die Programmdateien werden gelöscht. Daten (z. B. Datenbanken) bleiben erhalten; du kannst das Paket jederzeit neu installieren.',
+      confirmLabel: 'Deinstallieren',
+      danger: true,
+    })
+    if (!ok) return
     setError('')
     try {
       await window.go.app.App.RemovePackage(name, version)
+      toast.success(`${label} deinstalliert`)
       await loadData()
     } catch (e: any) {
       setError(e?.message || String(e))
@@ -380,9 +390,9 @@ export default function PackageManager() {
                           </button>
                         )}
                         <button
-                          onClick={() => handleRemove(pkg.name, pkg.version)}
+                          onClick={() => handleRemove(pkg.name, pkg.version, pkg.label || pkg.name, false)}
                           className="p-1.5 text-text-dim hover:text-status-red transition-colors"
-                          title="Entfernen"
+                          title="Deinstallieren"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -390,10 +400,19 @@ export default function PackageManager() {
                     )}
 
                     {pkg.status === 'active' && (
-                      <span className="flex items-center gap-1 px-3 py-1.5 text-xs text-status-green">
-                        <Check size={12} />
-                        Aktiv
-                      </span>
+                      <>
+                        <span className="flex items-center gap-1 px-3 py-1.5 text-xs text-status-green">
+                          <Check size={12} />
+                          Aktiv
+                        </span>
+                        <button
+                          onClick={() => handleRemove(pkg.name, pkg.version, pkg.label || pkg.name, true)}
+                          className="p-1.5 text-text-dim hover:text-status-red transition-colors"
+                          title="Deinstallieren"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>

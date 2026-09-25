@@ -872,8 +872,39 @@ func (a *App) InstallPackage(name, version string) error {
 	return a.pkgManager.InstallPackage(name, version)
 }
 
+// RemovePackage uninstalls a package, also the active version: a service
+// that runs from it is stopped first and taken off the autostart list. The
+// active PHP version and the active web server are refused, removing them
+// would take every site down. Data folders (databases) are not touched.
 func (a *App) RemovePackage(name, version string) error {
-	return a.pkgManager.RemovePackage(name, version)
+	cfg, err := a.config.GetAppConfig()
+	if err != nil {
+		return err
+	}
+	if name == "php" && cfg.ActivePHP == version {
+		return fmt.Errorf("PHP %s ist die aktive Version - aktiviere zuerst eine andere PHP-Version", version)
+	}
+	if (name == "apache" || name == "nginx") && cfg.ActiveWebServer == name {
+		return fmt.Errorf("%s ist der aktive Webserver - wechsle zuerst auf der Seite Server zum anderen", name)
+	}
+	active := a.pkgManager.IsActive(name, version)
+	onlyVersion := len(a.pkgManager.InstalledVersions(name)) <= 1
+	if active || onlyVersion {
+		if a.serviceManager != nil {
+			if _, err := a.serviceManager.Get(name); err == nil {
+				if err := a.StopService(name); err != nil {
+					return fmt.Errorf("%s konnte nicht gestoppt werden: %w", name, err)
+				}
+			}
+		}
+		if err := a.pkgManager.Deactivate(name, version); err != nil {
+			return err
+		}
+	}
+	if err := a.pkgManager.RemovePackage(name, version); err != nil {
+		return fmt.Errorf("%s %s konnte nicht entfernt werden: %w", name, version, err)
+	}
+	return nil
 }
 
 func (a *App) ActivatePackage(name, version string) error {

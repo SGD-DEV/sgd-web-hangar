@@ -326,6 +326,42 @@ func (m *Manager) getInstallStatus(pkg PackageEntry) InstallStatus {
 	return InstallStatusInstalled
 }
 
+// IsActive reports whether name@version is the active version.
+func (m *Manager) IsActive(name, version string) bool { return m.isActive(name, version) }
+
+// InstalledVersions lists the installed versions of a package.
+func (m *Manager) InstalledVersions(name string) []string {
+	var out []string
+	for _, p := range m.GetPackages("") {
+		if p.Name == name && (p.Status == InstallStatusInstalled || p.Status == InstallStatusActive) {
+			out = append(out, p.Version)
+		}
+	}
+	return out
+}
+
+// Deactivate clears the active marker of name if it points at version, so
+// the package can be removed.
+func (m *Manager) Deactivate(name, version string) error {
+	cfg, err := m.store.GetAppConfig()
+	if err != nil {
+		return err
+	}
+	changed := false
+	if cfg.ActiveVersions != nil && cfg.ActiveVersions[name] == version {
+		delete(cfg.ActiveVersions, name)
+		changed = true
+	}
+	if name == "php" && cfg.ActivePHP == version {
+		cfg.ActivePHP = ""
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+	return m.store.SaveAppConfig(cfg)
+}
+
 func (m *Manager) isActive(name, version string) bool {
 	cfg, err := m.store.GetAppConfig()
 	if err != nil {
