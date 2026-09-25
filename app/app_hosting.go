@@ -88,7 +88,8 @@ func (a *App) autostartServices() {
 	// A Hangar that was killed or crashed leaves its web server / PHP /
 	// mail children running; they hold the ports and serve stale configs.
 	// (MySQL and PostgreSQL are adopted by their services instead.)
-	if n := services.KillStale(a.paths.InstalledPath(), "httpd.exe", "nginx.exe", "php-cgi.exe", "mailpit.exe", "caddy.exe"); n > 0 {
+	if n := services.KillStale(a.paths.InstalledPath(), "httpd.exe", "nginx.exe", "php-cgi.exe", "mailpit.exe", "caddy.exe",
+		"meilisearch-windows-amd64.exe", "meilisearch.exe"); n > 0 {
 		a.logStore.AddWithLevel("hangar", fmt.Sprintf("Cleaned up %d leftover process(es) from a previous Hangar run", n), "warn")
 	}
 	if cfg.AutoStartAll {

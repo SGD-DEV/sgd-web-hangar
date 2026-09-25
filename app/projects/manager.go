@@ -186,8 +186,11 @@ func (m *Manager) CreateWithOptions(opts CreateOptions) (Project, error) {
 		return Project{}, fmt.Errorf("projects: saving: %w", err)
 	}
 
-	// Generate vhost configs and add hosts entry
+	// Generate vhost configs and add hosts entry, then load the new vhost
+	// into the running web server - otherwise the domain falls through to
+	// the default welcome page until the next restart.
 	m.linkProject(project, cfg)
+	m.reloadWebServersIfRunning()
 
 	return project, nil
 }
