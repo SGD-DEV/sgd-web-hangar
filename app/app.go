@@ -1737,7 +1737,7 @@ func (a *App) ListInstalledItems() []InstalledItem {
 		switch p.Name {
 		case "phpmyadmin":
 			item.LaunchKind = "web"
-			item.WebURL = "http://phpmyadmin.test"
+			item.WebURL = a.projectURL("phpmyadmin")
 		case "heidisql":
 			item.LaunchKind = "session"
 			item.ExePath = a.findHeidiSQLDir() // dir, launcher resolves the exe
