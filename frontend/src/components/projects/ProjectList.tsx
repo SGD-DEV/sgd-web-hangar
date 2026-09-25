@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { FolderOpen, Plus, Trash2, Search, X, Loader2, Lock, Unlock, Pencil, Globe, Home, ShieldCheck, Copy, Database, Mail, GitBranch, Play } from 'lucide-react'
-import { call, toast, useAction, errorMessage, confirmDialog } from '../../lib/api'
+import { call, toast, useAction, errorMessage } from '../../lib/api'
 import { Button, Modal, Field, inputCls } from '../ui/Controls'
 import { DatabaseDialog, MailDialog, GitDialog } from './ProjectTools'
 import { AppDialog } from './AppDialog'
@@ -106,22 +106,12 @@ export default function ProjectList() {
     return version
   }, { success: v => `Jetzt wird PHP ${v} verwendet`, error: 'PHP-Version konnte nicht gewechselt werden' })
 
-  const [remove] = useAction(async (p: Project) => {
-    await call('DeleteProject', p.name)
-    await loadProjects()
-  }, { success: 'Projekt entfernt (Dateien bleiben erhalten)', error: 'Projekt konnte nicht entfernt werden' })
+  const [removing, setRemoving] = useState<Project | null>(null)
 
   const [openFolder] = useAction((p: Project) => call('OpenInExplorer', p.path), { error: 'Ordner konnte nicht geöffnet werden' })
 
-  async function confirmRemove(p: Project) {
-    if (await confirmDialog({
-      title: `Projekt ${p.name} entfernen?`,
-      message: `Die Webserver-Konfiguration und der hosts-Eintrag werden entfernt.\nDer Ordner ${p.path} und die Datenbank bleiben erhalten.`,
-      confirmLabel: 'Projekt entfernen',
-      danger: true,
-    })) {
-      remove(p)
-    }
+  function confirmRemove(p: Project) {
+    setRemoving(p)
   }
 
   const frameworkBadge: Record<string, string> = {
@@ -182,6 +172,15 @@ export default function ProjectList() {
       )}
       {tool?.kind === 'git' && (
         <GitDialog project={tool.project} onClose={() => setTool(null)} />
+      )}
+
+      {removing && (
+        <RemoveProjectDialog
+          project={removing}
+          projectsRoot={projectsRoot}
+          onClose={() => setRemoving(null)}
+          onRemoved={async () => { setRemoving(null); await loadProjects() }}
+        />
       )}
 
       {editing && (
@@ -319,6 +318,78 @@ function settingsOf(p: Project, patch: Partial<Record<string, any>> = {}) {
     local_only: !!p.local_only,
     ...patch,
   }
+}
+
+// --- Remove -------------------------------------------------------------------
+
+function RemoveProjectDialog({ project, projectsRoot, onClose, onRemoved }: {
+  project: Project
+  projectsRoot: string
+  onClose: () => void
+  onRemoved: () => void
+}) {
+  const norm = (s: string) => s.replace(/[\\/]+$/, '').toLowerCase()
+  const folderDeletable = !!project.path && norm(project.path.replace(/[\\/][^\\/]+$/, '')) === norm(projectsRoot)
+  // Removing a project usually means "get rid of it": both are on by default.
+  const [deleteFolder, setDeleteFolder] = useState(folderDeletable)
+  const [dropDatabase, setDropDatabase] = useState(!!project.database)
+
+  const [remove, removing] = useAction(async () => {
+    const backup = await call<string>('RemoveProject', project.name, deleteFolder, dropDatabase)
+    onRemoved()
+    return backup
+  }, {
+    success: backup => [
+      `Projekt ${project.name} entfernt`,
+      deleteFolder ? 'Ordner gelöscht' : 'Ordner bleibt erhalten',
+      backup ? `Datenbank gelöscht (Backup: ${backup.split(/[\\/]/).pop()})` : '',
+    ].filter(Boolean).join(' · '),
+    error: 'Projekt konnte nicht entfernt werden',
+  })
+
+  return (
+    <Modal title={`Projekt ${project.name} entfernen`} onClose={onClose} width="max-w-lg">
+      <div className="space-y-4">
+        <p className="text-sm text-text-muted">
+          Die Webserver-Konfiguration und der hosts-Eintrag werden entfernt; <span className="font-mono text-text-primary">{project.domain}</span> ist danach nicht mehr erreichbar.
+        </p>
+        <div className="space-y-3">
+          <label className={`flex items-start gap-2 text-sm ${folderDeletable ? 'text-text-muted cursor-pointer' : 'text-text-dim'}`}>
+            <input type="checkbox" className="accent-accent mt-0.5" checked={deleteFolder} disabled={!folderDeletable}
+              onChange={e => setDeleteFolder(e.target.checked)} />
+            <span>
+              Ordner mit allen Dateien löschen
+              <span className="block text-[11px] font-mono text-text-dim break-all">{project.path || '(kein Ordner)'}</span>
+              {!folderDeletable && project.path && <span className="block text-[11px] text-text-dim">Liegt nicht im Projektordner - wird zur Sicherheit nicht gelöscht.</span>}
+            </span>
+          </label>
+          {project.database && (
+            <label className="flex items-start gap-2 text-sm text-text-muted cursor-pointer">
+              <input type="checkbox" className="accent-accent mt-0.5" checked={dropDatabase} onChange={e => setDropDatabase(e.target.checked)} />
+              <span>
+                Datenbank <span className="font-mono text-text-primary">{project.database.name}</span> löschen
+                <span className="block text-[11px] text-text-dim">Vorher wird automatisch ein Backup gespeichert.</span>
+              </span>
+            </label>
+          )}
+        </div>
+        {!deleteFolder && folderDeletable && (
+          <p className="text-[11px] text-text-dim">
+            Der Ordner bleibt liegen und wird beim Start nicht wieder als Projekt aufgenommen. „Suchen“ holt ihn bei Bedarf zurück.
+          </p>
+        )}
+        {deleteFolder && (
+          <p className="text-xs text-status-red">Das Löschen des Ordners kann nicht rückgängig gemacht werden.</p>
+        )}
+        <div className="flex justify-end gap-2 pt-2 border-t border-border">
+          <Button onClick={onClose}>Abbrechen</Button>
+          <Button variant="danger" busy={removing} onClick={remove}>
+            {deleteFolder || dropDatabase ? 'Endgültig entfernen' : 'Projekt entfernen'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
 }
 
 // --- Edit ---------------------------------------------------------------------

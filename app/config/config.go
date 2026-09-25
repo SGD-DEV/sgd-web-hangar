@@ -47,6 +47,10 @@ type AppConfig struct {
 	// DomainSuffix is appended to a project name for its local domain
 	// (".test" when empty), see LocalDomainSuffix.
 	DomainSuffix string `json:"domain_suffix,omitempty"`
+	// IgnoredProjectFolders are folders in the projects root whose project
+	// was removed while its files were kept: the automatic scan must not
+	// register them again. A manual scan clears the list.
+	IgnoredProjectFolders []string `json:"ignored_project_folders,omitempty"`
 	// DesiredServices remembers which services the user left running, so
 	// they come back after a reboot (AutoStartAll) and the watchdog can
 	// restart them when they crash.

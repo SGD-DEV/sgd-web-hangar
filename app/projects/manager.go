@@ -185,6 +185,10 @@ func (m *Manager) CreateWithOptions(opts CreateOptions) (Project, error) {
 	if err := m.store.SaveProject(name, data); err != nil {
 		return Project{}, fmt.Errorf("projects: saving: %w", err)
 	}
+	// Created on purpose: the scan may pick the folder up again.
+	if isIgnoredFolder(cfg, filepath.Base(path)) {
+		_ = m.SetFolderIgnored(filepath.Base(path), false)
+	}
 
 	// Generate vhost configs and add hosts entry, then load the new vhost
 	// into the running web server - otherwise the domain falls through to
@@ -193,6 +197,58 @@ func (m *Manager) CreateWithOptions(opts CreateOptions) (Project, error) {
 	m.reloadWebServersIfRunning()
 
 	return project, nil
+}
+
+func isIgnoredFolder(cfg config.AppConfig, name string) bool {
+	for _, n := range cfg.IgnoredProjectFolders {
+		if strings.EqualFold(n, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// SetFolderIgnored adds or removes a folder name from the list the
+// automatic scan skips.
+func (m *Manager) SetFolderIgnored(name string, ignored bool) error {
+	cfg, err := m.store.GetAppConfig()
+	if err != nil {
+		return err
+	}
+	var list []string
+	for _, n := range cfg.IgnoredProjectFolders {
+		if !strings.EqualFold(n, name) {
+			list = append(list, n)
+		}
+	}
+	if ignored {
+		list = append(list, name)
+	}
+	cfg.IgnoredProjectFolders = list
+	return m.store.SaveAppConfig(cfg)
+}
+
+// ClearIgnoredFolders lets the next scan pick up every folder again (the
+// user clicked "Suchen").
+func (m *Manager) ClearIgnoredFolders() error {
+	cfg, err := m.store.GetAppConfig()
+	if err != nil {
+		return err
+	}
+	if len(cfg.IgnoredProjectFolders) == 0 {
+		return nil
+	}
+	cfg.IgnoredProjectFolders = nil
+	return m.store.SaveAppConfig(cfg)
+}
+
+// ProjectsRoot is the folder new projects go to and the scan looks at.
+func (m *Manager) ProjectsRoot() string {
+	cfg, err := m.store.GetAppConfig()
+	if err != nil {
+		return m.paths.ProjectsPath()
+	}
+	return m.projectsRoot(cfg)
 }
 
 func (m *Manager) Delete(name string) error {
@@ -298,6 +354,10 @@ func (m *Manager) Scan() ([]Project, error) {
 			// Always regenerate vhost configs to keep PHP CGI paths current
 			m.linkProject(existing, cfg)
 			continue
+		}
+
+		if isIgnoredFolder(cfg, entry.Name()) {
+			continue // removed by the user, files kept on purpose
 		}
 
 		framework := m.detector.Detect(projPath)

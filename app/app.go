@@ -722,13 +722,53 @@ func (a *App) UpdateProject(name string, project projects.Project) error {
 }
 
 func (a *App) DeleteProject(name string) error {
-	if a.appInstalled(name) {
-		return fmt.Errorf("entferne zuerst den App-Dienst (App-Dialog > Dienst entfernen)")
-	}
-	return a.projectManager.Delete(name)
+	_, err := a.RemoveProject(name, false, false)
+	return err
 }
 
+// RemoveProject removes a project from Hangar (vhost, hosts entry) and
+// optionally its database (after a backup) and its folder. A kept folder
+// is remembered so the automatic scan doesn't bring the project back.
+// Returns the backup path when a database was dropped.
+func (a *App) RemoveProject(name string, deleteFolder, dropDatabase bool) (string, error) {
+	if a.appInstalled(name) {
+		return "", fmt.Errorf("entferne zuerst den App-Dienst (App-Dialog > Dienst entfernen)")
+	}
+	p, err := a.projectManager.Get(name)
+	if err != nil {
+		return "", err
+	}
+	root := filepath.Clean(a.projectManager.ProjectsRoot())
+	folder := filepath.Clean(p.Path)
+	inRoot := p.Path != "" && strings.EqualFold(filepath.Dir(folder), root)
+	if deleteFolder && !inRoot {
+		return "", fmt.Errorf("der Ordner %s liegt nicht direkt im Projektordner %s - er wird aus Sicherheitsgründen nicht gelöscht", p.Path, root)
+	}
+
+	backup := ""
+	if dropDatabase && p.Database != nil {
+		backup, err = a.DropDatabase(p.Database.Type, p.Database.Name)
+		if err != nil {
+			return backup, fmt.Errorf("Datenbank %s: %w (Projekt wurde nicht entfernt)", p.Database.Name, err)
+		}
+	}
+	if err := a.projectManager.Delete(name); err != nil {
+		return backup, err
+	}
+	if deleteFolder {
+		if err := os.RemoveAll(folder); err != nil {
+			return backup, fmt.Errorf("Projekt entfernt, aber der Ordner konnte nicht vollständig gelöscht werden (Dateien in Benutzung?): %w", err)
+		}
+	} else if inRoot {
+		_ = a.projectManager.SetFolderIgnored(filepath.Base(folder), true)
+	}
+	return backup, nil
+}
+
+// ScanProjects registers every folder in the projects root - also ones
+// whose project was removed earlier (the user asked for it).
 func (a *App) ScanProjects() ([]projects.Project, error) {
+	_ = a.projectManager.ClearIgnoredFolders()
 	return a.projectManager.Scan()
 }
 
@@ -808,6 +848,8 @@ func (a *App) UpdateConfig(cfg config.AppConfig) error {
 		cfg.ActiveWebServer = cur.ActiveWebServer
 		cfg.SchemaVersion = cur.SchemaVersion
 		cfg.ActivePHP = cur.ActivePHP
+		cfg.IgnoredProjectFolders = cur.IgnoredProjectFolders
+		cfg.ActiveVersions = cur.ActiveVersions
 	}
 	if cfg.PHPWorkers < 1 || cfg.PHPWorkers > phpfcgi.MaxWorkers {
 		cfg.PHPWorkers = phpfcgi.DefaultWorkers
