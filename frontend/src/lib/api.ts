@@ -90,3 +90,34 @@ export function useAction<A extends any[], R>(
 
   return [run, busy]
 }
+
+// --- Confirm dialog -----------------------------------------------------------
+
+export interface ConfirmOptions {
+  title: string
+  message?: string
+  confirmLabel?: string
+  danger?: boolean
+}
+
+interface ConfirmState {
+  current: (ConfirmOptions & { resolve: (ok: boolean) => void }) | null
+  open: (o: ConfirmOptions) => Promise<boolean>
+  close: (ok: boolean) => void
+}
+
+export const useConfirm = create<ConfirmState>((set, get) => ({
+  current: null,
+  open: (o) => new Promise<boolean>(resolve => {
+    get().current?.resolve(false)
+    set({ current: { ...o, resolve } })
+  }),
+  close: (ok) => {
+    get().current?.resolve(ok)
+    set({ current: null })
+  },
+}))
+
+// confirmDialog asks in Hangar's own dialog instead of the browser's
+// window.confirm and resolves to true when the user confirms.
+export const confirmDialog = (o: ConfirmOptions) => useConfirm.getState().open(o)

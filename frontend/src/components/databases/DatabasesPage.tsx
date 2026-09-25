@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Database, RefreshCw, Box, Layers, Code, Plus, Download, Trash2, Copy, FolderOpen, Globe, Table2, HardDrive as Elephant } from 'lucide-react'
-import { call, toast, useAction, errorMessage } from '../../lib/api'
+import { call, toast, useAction, errorMessage, confirmDialog } from '../../lib/api'
 import { Button, Card, Field, Modal, StatusDot, inputCls } from '../ui/Controls'
 
 interface ServiceStatus {
@@ -111,8 +111,13 @@ export default function DatabasesPage({ services }: { services: Record<string, S
     return path
   }, { success: p => `Database deleted. A backup was saved first: ${p.split('\\').pop()}`, error: 'Could not delete database' })
 
-  function confirmDrop(t: DBType, name: string) {
-    if (window.confirm(`Delete database "${name}"?\n\nHangar saves a backup to the backups folder first.`)) drop(t, name)
+  async function confirmDrop(t: DBType, name: string) {
+    if (await confirmDialog({
+      title: `Delete database ${name}?`,
+      message: `Hangar saves a backup to the backups folder first.\nThe user with the same name is removed too, unless it has rights on another database.`,
+      confirmLabel: 'Delete database',
+      danger: true,
+    })) drop(t, name)
   }
 
   return (

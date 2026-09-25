@@ -19,6 +19,7 @@ import WelcomeWizard from './components/onboarding/WelcomeWizard'
 import TunnelPage from './components/tunnel/TunnelPage'
 import WebServerSwitch from './components/dashboard/WebServerSwitch'
 import Toaster from './components/ui/Toaster'
+import ConfirmDialog from './components/ui/ConfirmDialog'
 
 export type NavItem = 'servers' | 'packages' | 'installed' | 'php' | 'projects' | 'tunnel' | 'ssl' | 'databases' | 'terminal' | 'syspath' | 'settings'
 export type DetailTab = 'overview' | 'config' | 'logs'
@@ -230,6 +231,7 @@ function App() {
       )}
 
       <Toaster />
+      <ConfirmDialog />
     </div>
   )
 }

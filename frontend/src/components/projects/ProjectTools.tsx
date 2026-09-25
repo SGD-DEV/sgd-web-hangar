@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Copy, Download, Upload, RefreshCw, Send, Loader2 } from 'lucide-react'
-import { call, toast, useAction, errorMessage } from '../../lib/api'
+import { call, toast, useAction, errorMessage, confirmDialog } from '../../lib/api'
 import { Button, Modal, Field, inputCls } from '../ui/Controls'
 import type { Project, ProjectDatabase, ProjectMail } from './ProjectList'
 
@@ -90,8 +90,13 @@ export function DatabaseDialog({ project, onClose, onChanged }: {
                 : 'Hangar writes no config file for proxy projects - put these values into your app\'s config.'}
           </p>
           <div className="flex justify-between gap-2 pt-2 border-t border-border">
-            <Button variant="danger" busy={detaching} onClick={() => {
-              if (window.confirm('Remove the assignment? The database and its data are kept.')) detach()
+            <Button variant="danger" busy={detaching} onClick={async () => {
+              if (await confirmDialog({
+                title: 'Remove the database assignment?',
+                message: 'The database and its data are kept - only the link to this project is removed.',
+                confirmLabel: 'Remove assignment',
+                danger: true,
+              })) detach()
             }}>Remove assignment</Button>
             <div className="flex gap-2">
               {target && <Button busy={rewriting} onClick={rewrite}>Write {target} again</Button>}

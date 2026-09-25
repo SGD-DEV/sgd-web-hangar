@@ -169,7 +169,48 @@ func (a *App) DropDatabase(dbType, name string) (string, error) {
 	if err := a.execSQL(dbType, "", sql); err != nil {
 		return backup, err
 	}
+	if err := a.dropOwnUser(dbType, name); err != nil {
+		return backup, fmt.Errorf("database deleted, but removing user %s failed: %w", name, err)
+	}
 	return backup, nil
+}
+
+// dropOwnUser removes the user CreateDatabase made together with the
+// database (same name) - unless it still has rights on another database,
+// e.g. because it was reused for a second one.
+func (a *App) dropOwnUser(dbType, name string) error {
+	if name == "root" || name == "postgres" {
+		return nil
+	}
+	var check string
+	var drops []string
+	switch dbType {
+	case "mysql":
+		check = fmt.Sprintf("SELECT COUNT(*) AS n FROM mysql.db WHERE User = %s AND Db <> %s", sqlString(name), sqlString(name))
+		drops = []string{fmt.Sprintf("DROP USER IF EXISTS '%[1]s'@'localhost', '%[1]s'@'127.0.0.1', '%[1]s'@'::1'", name)}
+	case "postgresql":
+		check = fmt.Sprintf("SELECT COUNT(*) AS n FROM pg_database d JOIN pg_roles r ON r.oid = d.datdba WHERE r.rolname = %s", sqlString(name))
+		drops = []string{fmt.Sprintf(`DROP ROLE IF EXISTS "%s"`, name)}
+	default:
+		return nil
+	}
+	dsn, err := a.dbDSN(dbType, "")
+	if err != nil {
+		return err
+	}
+	res, err := dbinspect.RunQuery(dbType, dsn, check)
+	if err != nil {
+		return err
+	}
+	if len(res.Rows) == 1 && fmt.Sprint(res.Rows[0]["n"]) != "0" {
+		return nil // still in use elsewhere
+	}
+	for _, s := range drops {
+		if err := a.execSQL(dbType, "", s); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // BackupsDir is where database dumps go.

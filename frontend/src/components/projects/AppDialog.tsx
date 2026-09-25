@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Download, RefreshCw } from 'lucide-react'
-import { call, useAction } from '../../lib/api'
+import { call, useAction, confirmDialog } from '../../lib/api'
 import { Button, Modal, Field, inputCls } from '../ui/Controls'
 import type { Project } from './ProjectList'
 
@@ -181,8 +181,13 @@ export function AppDialog({ project, onClose, onChanged }: {
 
         {installed && (
           <div className="text-right">
-            <Button variant="danger" disabled={busy} busy={uninstalling} onClick={() => {
-              if (window.confirm(`Remove the Windows service ${status?.service}? The project and its files stay.`)) uninstall()
+            <Button variant="danger" disabled={busy} busy={uninstalling} onClick={async () => {
+              if (await confirmDialog({
+                title: `Remove the service ${status?.service}?`,
+                message: 'The app stops and no longer starts with Windows. The project and its files stay. Windows asks for administrator rights.',
+                confirmLabel: 'Remove service',
+                danger: true,
+              })) uninstall()
             }}>Remove service</Button>
           </div>
         )}

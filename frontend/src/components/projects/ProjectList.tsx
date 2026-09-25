@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { FolderOpen, Plus, Trash2, Search, X, Loader2, Lock, Unlock, Pencil, Globe, Home, ShieldCheck, Copy, Database, Mail, GitBranch, Play } from 'lucide-react'
-import { call, toast, useAction, errorMessage } from '../../lib/api'
+import { call, toast, useAction, errorMessage, confirmDialog } from '../../lib/api'
 import { Button, Modal, Field, inputCls } from '../ui/Controls'
 import { DatabaseDialog, MailDialog, GitDialog } from './ProjectTools'
 import { AppDialog } from './AppDialog'
@@ -111,8 +111,13 @@ export default function ProjectList() {
 
   const [openFolder] = useAction((p: Project) => call('OpenInExplorer', p.path), { error: 'Could not open folder' })
 
-  function confirmRemove(p: Project) {
-    if (window.confirm(`Remove project "${p.name}"?\n\nThe web server config and hosts entry are removed. The folder ${p.path} is NOT deleted.`)) {
+  async function confirmRemove(p: Project) {
+    if (await confirmDialog({
+      title: `Remove project ${p.name}?`,
+      message: `The web server config and the hosts entry are removed.\nThe folder ${p.path} and the database are kept.`,
+      confirmLabel: 'Remove project',
+      danger: true,
+    })) {
       remove(p)
     }
   }
