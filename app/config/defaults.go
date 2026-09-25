@@ -25,7 +25,7 @@ func DefaultAppConfig() AppConfig {
 
 		SchemaVersion:     CurrentSchemaVersion,
 		ActiveWebServer:   "apache",
-		PHPWorkers:        4,
+		PHPWorkers:        8, // WordPress admin fires many parallel requests
 		TunnelServiceName: "Cloudflared",
 	}
 }

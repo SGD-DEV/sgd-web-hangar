@@ -122,6 +122,7 @@ func (a *App) Startup(ctx context.Context) {
 	// events, and CLI/daemon don't need it pre-warmed for short runs.
 	a.ensurePHPIni()
 	a.initAppearance()
+	a.refreshAdminerIndex()
 
 	// Bring back the services that were running before the last shutdown
 	// or reboot, then keep an eye on them.
@@ -277,15 +278,20 @@ func (a *App) ensurePHPIni() {
 	if a.phpManager == nil {
 		return
 	}
+	caBundle := a.ensureCABundle()
 	versions := a.phpManager.ListInstalled()
 	for _, v := range versions {
 		phpDir := a.paths.PHPPath(v.Version)
 		iniPath := filepath.Join(phpDir, "php.ini")
 		if _, err := os.Stat(iniPath); err == nil {
 			// Already exists - don't overwrite user customizations, only
-			// move the stock mail settings over to Mailpit.
-			if err := pointPHPIniAtMailpit(iniPath); err != nil {
-				runtime.LogWarningf(a.ctx, "devour: mail settings for PHP %s: %v", v.Version, err)
+			// apply Hangar's defaults to untouched stock lines.
+			changed, err := applyHangarINIDefaults(iniPath, caBundle)
+			if err != nil {
+				runtime.LogWarningf(a.ctx, "devour: php.ini defaults for PHP %s: %v", v.Version, err)
+			} else if changed && a.phpPool != nil {
+				// Running workers only read php.ini at start.
+				_ = a.phpPool.RestartVersion(v.Version)
 			}
 			continue
 		}
@@ -294,7 +300,7 @@ func (a *App) ensurePHPIni() {
 		if _, err := os.Stat(prodIni); err == nil {
 			data, err := os.ReadFile(prodIni)
 			if err == nil {
-				patched, _ := mailpitMailSettings(applyDefaultPHPExtensions(data, phpDir))
+				patched, _ := hangarINIDefaults(applyDefaultPHPExtensions(data, phpDir), caBundle)
 				if err := os.WriteFile(iniPath, patched, 0644); err == nil {
 					runtime.LogInfof(a.ctx, "devour: created php.ini for PHP %s with default extensions", v.Version)
 				}
@@ -808,9 +814,14 @@ func (a *App) UpdateConfig(cfg config.AppConfig) error {
 	}
 	if cfg.ProjectsRoot != "" {
 		if info, err := os.Stat(cfg.ProjectsRoot); err != nil || !info.IsDir() {
-			return fmt.Errorf("projects root %s does not exist", cfg.ProjectsRoot)
+			return fmt.Errorf("der Projektordner %s existiert nicht", cfg.ProjectsRoot)
 		}
 	}
+	suffix, err := config.NormalizeDomainSuffix(cfg.DomainSuffix)
+	if err != nil {
+		return err
+	}
+	cfg.DomainSuffix = suffix
 	return a.config.SaveAppConfig(cfg)
 }
 

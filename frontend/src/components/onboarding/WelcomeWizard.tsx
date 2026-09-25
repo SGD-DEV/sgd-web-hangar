@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Download, Loader2, AlertCircle, Zap } from 'lucide-react'
 import { statusLabel } from '../../lib/i18n'
+import { useAppearance } from '../../lib/theme'
 
 interface BundleItem {
   name: string
@@ -41,6 +42,7 @@ interface WelcomeWizardProps {
 }
 
 export default function WelcomeWizard({ onComplete }: WelcomeWizardProps) {
+  const appName = useAppearance(s => s.settings?.app_name) || 'Hangar'
   const [bundle, setBundle] = useState<BundleItem[]>([])
   const [selected, setSelected] = useState<Record<string, boolean>>({})
   const [statuses, setStatuses] = useState<Record<string, BundleStatus>>({})
@@ -131,7 +133,7 @@ export default function WelcomeWizard({ onComplete }: WelcomeWizardProps) {
       <div className="w-full max-w-2xl bg-bg-secondary border border-border rounded-lg shadow-2xl p-8">
         <div className="flex items-center gap-3 mb-2">
           <Zap className="text-accent" size={28} />
-          <h1 className="text-2xl font-semibold text-text-primary">Willkommen bei Hangar</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">Willkommen bei {appName}</h1>
         </div>
         <p className="text-text-muted mb-6">
           Hangar kommt schlank daher. Beim ersten Start laden wir nur die Dienste herunter, die du wirklich willst.

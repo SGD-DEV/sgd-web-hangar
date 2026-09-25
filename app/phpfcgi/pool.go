@@ -34,7 +34,7 @@ import (
 
 const (
 	// DefaultWorkers is used when AppConfig.PHPWorkers is unset.
-	DefaultWorkers = 4
+	DefaultWorkers = 8
 	// MaxWorkers bounds the port range a version may occupy (see PortFor).
 	MaxWorkers = 8
 	// maxRequests is handed to php-cgi as PHP_FCGI_MAX_REQUESTS. The worker

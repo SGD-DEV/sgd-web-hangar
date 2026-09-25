@@ -26,6 +26,9 @@ import (
 // Settings page (TODO) or env file.
 const devMasterKey = "hangar-local-dev-master-key-not-for-production"
 
+// MasterKey is the key the Meilisearch web UI and admin clients log in with.
+func MasterKey() string { return devMasterKey }
+
 type Meilisearch struct {
 	services.BaseService
 	paths    config.Paths

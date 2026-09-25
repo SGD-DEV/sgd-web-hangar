@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Terminal as TerminalIcon, ExternalLink } from 'lucide-react'
+import { useAppearance } from '../../lib/theme'
 
 interface OutputLine {
   type: 'command' | 'stdout' | 'stderr' | 'info'
@@ -7,6 +8,7 @@ interface OutputLine {
 }
 
 export default function DevourTerminal() {
+  const appName = useAppearance(s => s.settings?.app_name) || 'Hangar'
   const [input, setInput] = useState('')
   const [lines, setLines] = useState<OutputLine[]>([])
   const [running, setRunning] = useState(false)
@@ -144,7 +146,7 @@ export default function DevourTerminal() {
       <div className="px-6 py-3 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <TerminalIcon size={14} className="text-accent" />
-          <h2 className="text-sm font-medium">Hangar Terminal</h2>
+          <h2 className="text-sm font-medium">{appName} Terminal</h2>
           {envInfo.php && (
             <span className="text-xs text-text-muted bg-bg-secondary px-2 py-0.5 rounded font-mono">PHP {envInfo.php}</span>
           )}
@@ -178,7 +180,7 @@ export default function DevourTerminal() {
         {/* Welcome message */}
         {lines.length === 0 && !running && (
           <div className="text-text-dim mb-4">
-            <p className="text-accent mb-1">Hangar Terminal v1.0</p>
+            <p className="text-accent mb-1">{appName} Terminal</p>
             <p>PHP, MySQL, Composer, Node und weitere Tools stehen automatisch zur Verfügung.</p>
             <p>Gib <span className="text-text-primary">php -v</span>, <span className="text-text-primary">mysql --version</span> oder einen anderen Befehl ein.</p>
             <p><span className="text-text-primary">clear</span> leert die Ausgabe, <span className="text-text-primary">Strg+C</span> bricht ab.</p>

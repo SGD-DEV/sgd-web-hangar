@@ -110,7 +110,7 @@ func (m *Manager) CreateWithOptions(opts CreateOptions) (Project, error) {
 	}
 	domain := strings.ToLower(opts.Domain)
 	if domain == "" {
-		domain = strings.ToLower(name) + ".test"
+		domain = strings.ToLower(name) + cfg.LocalDomainSuffix()
 	}
 	if err := validateDomain(domain); err != nil {
 		return Project{}, fmt.Errorf("projects: %w", err)
@@ -302,7 +302,7 @@ func (m *Manager) Scan() ([]Project, error) {
 
 		framework := m.detector.Detect(projPath)
 		docRoot := m.detector.GetDocumentRoot(projPath, framework)
-		domain := strings.ToLower(entry.Name()) + ".test"
+		domain := strings.ToLower(entry.Name()) + cfg.LocalDomainSuffix()
 
 		p := Project{
 			Name:         entry.Name(),

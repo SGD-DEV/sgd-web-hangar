@@ -1,6 +1,77 @@
-import { Server, Code2, FolderOpen, Shield, Database, Settings, Package, Terminal, Route, LayoutGrid, Cloud, Palette } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Server, Code2, FolderOpen, Shield, Database, Settings, Package, Terminal, Route, LayoutGrid, Cloud, Palette, ExternalLink, KeyRound } from 'lucide-react'
 import type { NavItem } from '../../App'
 import { useAppearance } from '../../lib/theme'
+import { call, toast, errorMessage } from '../../lib/api'
+
+interface WebTool {
+  id: string
+  label: string
+  url: string
+  installed: boolean
+  running: boolean
+  key?: string
+}
+
+// Quick links to the browser UIs of the services - easy to forget where
+// Mailpit or Meilisearch live otherwise.
+function WebTools() {
+  const [tools, setTools] = useState<WebTool[]>([])
+
+  useEffect(() => {
+    const load = () => call<WebTool[]>('GetWebTools').then(t => setTools(t || [])).catch(() => {})
+    load()
+    const timer = setInterval(load, 10000)
+    return () => clearInterval(timer)
+  }, [])
+
+  async function open(url: string | Promise<string>) {
+    try {
+      await call('OpenURL', await url)
+    } catch (e) {
+      toast.error('Konnte nicht geöffnet werden', errorMessage(e))
+    }
+  }
+
+  const links: { id: string; label: string; title: string; dot?: boolean; onOpen: () => void; keyToCopy?: string }[] = [
+    ...tools.filter(t => t.installed).map(t => ({
+      id: t.id,
+      label: t.label,
+      title: t.running ? `${t.url} öffnen` : `${t.label} läuft nicht - starte es auf der Seite Server`,
+      dot: t.running,
+      onOpen: () => open(t.url),
+      keyToCopy: t.key,
+    })),
+    { id: 'phpmyadmin', label: 'phpMyAdmin', title: 'phpMyAdmin (MySQL) öffnen', onOpen: () => open(call<string>('OpenPhpMyAdmin')) },
+    { id: 'adminer', label: 'Adminer', title: 'Adminer (MySQL, PostgreSQL) öffnen', onOpen: () => open(call<string>('OpenAdminer')) },
+  ]
+
+  return (
+    <div className="mt-4 pt-4 border-t border-border">
+      <div className="px-4 mb-2">
+        <span className="text-xs font-medium text-text-dim uppercase tracking-wider">Web-Oberflächen</span>
+      </div>
+      {links.map(l => (
+        <div key={l.id} className="group flex items-center px-4 hover:bg-bg-secondary/50">
+          <button onClick={l.onOpen} title={l.title}
+            className="flex-1 flex items-center gap-3 py-1.5 text-xs text-text-muted group-hover:text-text-primary text-left">
+            <ExternalLink size={13} strokeWidth={1.5} />
+            <span className="flex-1">{l.label}</span>
+            {l.dot !== undefined && <span className={`w-1.5 h-1.5 rounded-full ${l.dot ? 'bg-status-green' : 'bg-text-dim'}`} />}
+          </button>
+          {l.keyToCopy && (
+            <button
+              onClick={() => navigator.clipboard.writeText(l.keyToCopy!).then(() => toast.info(`${l.label}-Schlüssel kopiert`, 'Im Anmeldefeld der Oberfläche einfügen.')).catch(() => {})}
+              title="API-Schlüssel kopieren (die Oberfläche fragt danach)"
+              className="ml-2 p-1 text-text-dim hover:text-text-primary">
+              <KeyRound size={12} />
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 interface SidebarProps {
   activeNav: NavItem
@@ -58,6 +129,7 @@ export default function Sidebar({ activeNav, onNavChange }: SidebarProps) {
             </button>
           )
         })}
+        <WebTools />
       </nav>
 
       <div className="p-4 border-t border-border">

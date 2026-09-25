@@ -78,3 +78,16 @@ func TestRenderStarter(t *testing.T) {
 		t.Error("dark text expected on white background")
 	}
 }
+
+func TestPanelPlaceholderAndMigration(t *testing.T) {
+	st := Defaults()
+	st.AppName = "RS Hosting"
+	if page := RenderStarter(st, "shop", "shop.test", `C:\x`, "8.3"); !strings.Contains(page, "von RS Hosting mit PHP") {
+		t.Errorf("{panel} not replaced:\n%s", page)
+	}
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "settings.json"), []byte(`{"app_name":"X","accent":"#b5f23d","starter":{"lang":"de","heading":"h","text":"Diese Seite wird von Hangar mit PHP {php} ausgeliefert. Ersetze index.php in {folder} durch deine Website.","background":"#0f1010"}}`), 0644)
+	if got := NewStore(dir).Load().Starter.Text; !strings.Contains(got, "{panel}") {
+		t.Errorf("old default not migrated: %q", got)
+	}
+}

@@ -65,6 +65,7 @@ export default function ProjectList() {
   const [editing, setEditing] = useState<Project | null>(null)
   const [tool, setTool] = useState<{ kind: 'db' | 'mail' | 'git' | 'app'; project: Project } | null>(null)
   const [projectsRoot, setProjectsRoot] = useState('')
+  const [domainSuffix, setDomainSuffix] = useState('.test')
   const [phpVersions, setPhpVersions] = useState<PHPVersion[]>([])
   const [webServer, setWebServer] = useState('apache')
 
@@ -82,6 +83,7 @@ export default function ProjectList() {
   useEffect(() => {
     loadProjects()
     call<string>('GetProjectsRoot').then(r => r && setProjectsRoot(r)).catch(() => {})
+    call<{ domain_suffix?: string }>('GetConfig').then(c => c?.domain_suffix && setDomainSuffix(c.domain_suffix)).catch(() => {})
     call<PHPVersion[]>('GetInstalledPHPVersions').then(v => setPhpVersions(v || [])).catch(() => {})
     call<string>('GetActiveWebServer').then(setWebServer).catch(() => {})
   }, [loadProjects])
@@ -154,6 +156,7 @@ export default function ProjectList() {
       {showCreate && (
         <CreateProject
           projectsRoot={projectsRoot}
+          domainSuffix={domainSuffix}
           onClose={() => setShowCreate(false)}
           onCreated={async (name, detail, openApp) => {
             setShowCreate(false)
@@ -263,7 +266,7 @@ export default function ProjectList() {
                     className={p.mail ? 'text-status-green' : ''}>
                     <Mail size={13} />
                   </IconButton>
-                  {p.framework !== 'proxy' && (
+                  {!!p.path && (
                     <IconButton onClick={() => setTool({ kind: 'git', project: p })} title="Git - Pull, Commit & Push"><GitBranch size={13} /></IconButton>
                   )}
                   <IconButton onClick={() => openFolder(p)} title="Ordner im Explorer öffnen"><FolderOpen size={13} /></IconButton>
@@ -435,8 +438,9 @@ const frameworks = [
   { value: 'proxy', label: 'Proxy', placeholder: '', description: 'Weiterleitung an eine App, die anderswo läuft' },
 ]
 
-function CreateProject({ projectsRoot, onClose, onCreated }: {
+function CreateProject({ projectsRoot, domainSuffix, onClose, onCreated }: {
   projectsRoot: string
+  domainSuffix: string
   onClose: () => void
   onCreated: (name: string, detail?: string, openApp?: boolean) => void
 }) {
@@ -513,8 +517,8 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
           : 'Wird für den Ordner und den Datenbanknamen verwendet.'}>
           <input className={inputCls} value={p.name} onChange={e => { setNameTouched(true); set({ name: e.target.value.toLowerCase() }) }} placeholder="my-site" disabled={creating} autoFocus />
         </Field>
-        <Field label="Lokale Domain (optional)" hint={<>Auf diesem Rechner über die hosts-Datei erreichbar. Standard: <span className="font-mono">{(nameValid ? name : 'my-site') + '.test'}</span></>}>
-          <input className={inputCls} value={p.domain} onChange={e => set({ domain: e.target.value })} placeholder={`${nameValid ? name : 'my-site'}.test`} disabled={creating} />
+        <Field label="Lokale Domain (optional)" hint={<>Auf diesem Rechner über die hosts-Datei erreichbar. Standard: <span className="font-mono">{(nameValid ? name : 'my-site') + domainSuffix}</span></>}>
+          <input className={inputCls} value={p.domain} onChange={e => set({ domain: e.target.value })} placeholder={`${nameValid ? name : 'my-site'}${domainSuffix}`} disabled={creating} />
         </Field>
         {p.framework === 'clone' && (
           <Field label="Repository-URL" hint="Nur https. Bei privaten Repos öffnet Git ein Login-Fenster (Git Credential Manager) und merkt sich die Anmeldung.">

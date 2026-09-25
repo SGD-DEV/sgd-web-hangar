@@ -44,6 +44,9 @@ type AppConfig struct {
 	ActiveWebServer string `json:"active_web_server"`
 	// PHPWorkers is the number of php-cgi FastCGI workers per PHP version.
 	PHPWorkers int `json:"php_workers"`
+	// DomainSuffix is appended to a project name for its local domain
+	// (".test" when empty), see LocalDomainSuffix.
+	DomainSuffix string `json:"domain_suffix,omitempty"`
 	// DesiredServices remembers which services the user left running, so
 	// they come back after a reboot (AutoStartAll) and the watchdog can
 	// restart them when they crash.

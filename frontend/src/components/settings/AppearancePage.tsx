@@ -144,7 +144,7 @@ export default function AppearancePage() {
           <Card className="p-4 space-y-4">
             <h3 className="text-sm font-medium">Startseite für neue Projekte</h3>
             <p className="text-[11px] text-text-dim -mt-2">
-              Neue PHP-Projekte bekommen diese index.php. Platzhalter: <span className="font-mono">{'{name} {domain} {php} {folder}'}</span>. Bestehende Projekte behalten ihre Seite.
+              Neue PHP-Projekte bekommen diese index.php. Platzhalter: <span className="font-mono">{'{name} {domain} {php} {folder} {panel}'}</span> ({'{panel}'} = Name oben). Bestehende Projekte behalten ihre Seite.
             </p>
             <Field label="Sprache">
               <select className={inputCls} value={form.starter.lang} onChange={e => setLang(e.target.value)}>

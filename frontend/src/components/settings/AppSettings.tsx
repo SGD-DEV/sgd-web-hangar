@@ -4,6 +4,7 @@ import { call, toast, errorMessage } from '../../lib/api'
 interface AppConfig {
   active_php: string
   projects_root: string
+  domain_suffix?: string
   apache_port: number
   nginx_port: number
   mysql_port: number
@@ -99,6 +100,23 @@ export default function AppSettings() {
             <p className="text-[11px] text-text-dim mt-1">Neue Projekte werden hier angelegt; „Suchen“ übernimmt vorhandene Ordner von hier.</p>
           </div>
 
+          {/* Domain suffix */}
+          <div>
+            <label className="block text-xs text-text-muted mb-1.5">Domain-Endung für neue Projekte</label>
+            <input
+              type="text"
+              value={config.domain_suffix || ''}
+              onChange={e => setConfig({ ...config, domain_suffix: e.target.value })}
+              placeholder=".test"
+              className="w-40 px-3 py-2 bg-bg-secondary border border-border rounded-lg text-sm text-text-primary placeholder-text-dim focus:outline-none focus:border-accent/50 transition-colors font-mono select-text"
+            />
+            <p className="text-[11px] text-text-dim mt-1">
+              Ein Projekt „shop“ wird zu <span className="font-mono">shop{config.domain_suffix || '.test'}</span>. Empfohlen: <span className="font-mono">.test</span> (dafür reserviert).
+              <span className="font-mono"> .local</span> funktioniert hier, ist aber eigentlich für die Geräteerkennung im Netzwerk gedacht.
+              Bestehende Projekte behalten ihre Domain.
+            </p>
+          </div>
+
           {/* Hosting */}
           <div className="pt-4 border-t border-border">
             <h3 className="text-sm font-medium mb-4">Hosting</h3>
@@ -119,8 +137,8 @@ export default function AppSettings() {
                 <span className="text-xs text-text-muted w-44">PHP-Worker pro Version:</span>
                 <input
                   type="number" min={1} max={8}
-                  value={config.php_workers || 4}
-                  onChange={e => setConfig({ ...config, php_workers: Math.min(8, Math.max(1, parseInt(e.target.value) || 4)) })}
+                  value={config.php_workers || 8}
+                  onChange={e => setConfig({ ...config, php_workers: Math.min(8, Math.max(1, parseInt(e.target.value) || 8)) })}
                   className="w-20 px-2 py-1 bg-bg-secondary border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent/50 font-mono"
                 />
                 <span className="text-[11px] text-text-dim">parallele PHP-Anfragen (1-8)</span>

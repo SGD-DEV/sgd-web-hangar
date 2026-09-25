@@ -23,7 +23,7 @@ const MaxLogoBytes = 512 * 1024
 // Starter is the template for the index.php of new projects.
 type Starter struct {
 	Lang       string `json:"lang"`    // "de" | "en"
-	Heading    string `json:"heading"` // placeholders: {name} {domain} {php} {folder}
+	Heading    string `json:"heading"` // placeholders: {name} {domain} {php} {folder} {panel}
 	Text       string `json:"text"`
 	Background string `json:"background"`
 	Accent     string `json:"accent"` // empty = the app accent
@@ -41,8 +41,15 @@ type Settings struct {
 
 // StarterTexts are the default heading/text per language.
 var StarterTexts = map[string][2]string{
-	"de": {"{name} ist online", "Diese Seite wird von Hangar mit PHP {php} ausgeliefert. Ersetze index.php in {folder} durch deine Website."},
-	"en": {"{name} is live", "This page is served by Hangar with PHP {php}. Replace index.php in {folder} with your site."},
+	"de": {"{name} ist online", "Diese Seite wird von {panel} mit PHP {php} ausgeliefert. Ersetze index.php in {folder} durch deine Website."},
+	"en": {"{name} is live", "This page is served by {panel} with PHP {php}. Replace index.php in {folder} with your site."},
+}
+
+// oldStarterTexts are earlier defaults with the panel name hard-coded; a
+// saved template still equal to one of them is moved to the new default.
+var oldStarterTexts = map[string]string{
+	"Diese Seite wird von Hangar mit PHP {php} ausgeliefert. Ersetze index.php in {folder} durch deine Website.": "de",
+	"This page is served by Hangar with PHP {php}. Replace index.php in {folder} with your site.":                "en",
 }
 
 // Defaults are the settings before anything was saved.
@@ -83,6 +90,9 @@ func (s *Store) Load() Settings {
 	st := Defaults()
 	if data, err := os.ReadFile(s.settingsPath()); err == nil {
 		_ = json.Unmarshal(data, &st)
+		if lang, ok := oldStarterTexts[st.Starter.Text]; ok {
+			st.Starter.Text = StarterTexts[lang][1]
+		}
 	}
 	st.Logo = ""
 	if p, err := s.logoPath(); err == nil {
@@ -193,6 +203,7 @@ func RenderStarter(st Settings, name, domain, dir, phpVersion string) string {
 			"{domain}", html.EscapeString(domain),
 			"{folder}", "<code>"+html.EscapeString(dir)+"</code>",
 			"{php}", php,
+			"{panel}", html.EscapeString(st.AppName),
 		)
 		return r.Replace(t)
 	}

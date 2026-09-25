@@ -93,6 +93,10 @@ export default function DatabasesPage({ services }: { services: Record<string, S
     const url = await call<string>('OpenAdminer')
     await call('OpenURL', url)
   }, { error: 'Adminer konnte nicht geöffnet werden' })
+  const [openAdminerPg, openingAdminerPg] = useAction(async () => {
+    const url = await call<string>('OpenAdminer')
+    await call('OpenURL', (url.endsWith('/') ? url : url + '/') + '?hangar=pgsql')
+  }, { error: 'Adminer konnte nicht geöffnet werden' })
   const [openPgAdmin, openingPgAdmin] = useAction(() => call('OpenPgAdmin'),
     { success: 'pgAdmin startet (der erste Start dauert ein paar Sekunden)', error: 'pgAdmin konnte nicht geöffnet werden' })
   const [launchTool] = useAction((t: ToolKey) => t === 'heidisql' ? call('OpenHeidiSQL') : call('LaunchTool', t, ''),
@@ -133,7 +137,9 @@ export default function DatabasesPage({ services }: { services: Record<string, S
           <Button variant="primary" busy={openingPMA} disabled={!mysqlRunning} onClick={openPMA} icon={<Table2 size={12} />}
             title={mysqlRunning ? 'phpMyAdmin für MySQL' : 'Starte zuerst MySQL'}>phpMyAdmin</Button>
           <Button variant="primary" busy={openingAdminer} onClick={openAdminer} icon={<Globe size={12} />}
-            title="Adminer: eine Seite für MySQL und PostgreSQL">Adminer</Button>
+            title="Adminer für MySQL (meldet sich automatisch an)">Adminer</Button>
+          <Button variant="primary" busy={openingAdminerPg} disabled={!pgRunning} onClick={openAdminerPg} icon={<Globe size={12} />}
+            title={pgRunning ? 'Adminer für PostgreSQL (meldet sich automatisch an)' : 'Starte zuerst PostgreSQL'}>Adminer (PostgreSQL)</Button>
           <Button variant="primary" busy={openingPgAdmin} onClick={openPgAdmin} icon={<Elephant size={12} />}
             title="pgAdmin 4 (Desktop-Programm, wird mit PostgreSQL geliefert)">pgAdmin</Button>
           {DESKTOP_TOOLS.filter(t => installedTools[t.key]).map(t => {
@@ -142,8 +148,8 @@ export default function DatabasesPage({ services }: { services: Record<string, S
           })}
         </div>
         <p className="text-[11px] text-text-dim mt-3">
-          Adminer-Login: System <span className="font-mono">MySQL</span>, Server <span className="font-mono">127.0.0.1</span>, Benutzer <span className="font-mono">root</span>, leeres Passwort
-          (PostgreSQL: Benutzer <span className="font-mono">postgres</span>).
+          Adminer meldet sich automatisch an. Falls doch ein Login erscheint: Server <span className="font-mono">127.0.0.1</span>, Benutzer <span className="font-mono">root</span>
+          (PostgreSQL: <span className="font-mono">postgres</span>), Passwort leer.
         </p>
       </Card>
 
