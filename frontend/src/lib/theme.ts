@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { call } from './api'
+import { call, errorMessage } from './api'
 
 // Runtime theming from the Appearance settings: the accent colour is set as
 // RGB triplets on :root (see tailwind.config.ts / styles/theme.css).
@@ -50,21 +50,35 @@ export function applyAccent(hex: string) {
 
 interface AppearanceState {
   settings: AppearanceSettings | null
+  error: string
   set: (s: AppearanceSettings) => void
   load: () => Promise<void>
 }
 
 export const useAppearance = create<AppearanceState>((set) => ({
   settings: null,
+  error: '',
   set: (s) => {
     applyAccent(s.accent)
     document.title = s.app_name || 'Hangar'
-    set({ settings: s })
+    set({ settings: s, error: '' })
   },
+  // Called right at startup, when the Wails bindings or the backend may not
+  // be ready yet - so retry for a few seconds instead of giving up.
   load: async () => {
-    try {
-      const s = await call<AppearanceSettings>('GetAppearance')
-      if (s) useAppearance.getState().set(s)
-    } catch { /* keep the built-in look */ }
+    let last = ''
+    for (let attempt = 0; attempt < 20; attempt++) {
+      try {
+        const s = await call<AppearanceSettings>('GetAppearance')
+        if (s) {
+          useAppearance.getState().set(s)
+          return
+        }
+      } catch (e) {
+        last = errorMessage(e)
+      }
+      await new Promise(r => setTimeout(r, 300))
+    }
+    set({ error: last || 'Keine Antwort vom Backend' })
   },
 }))

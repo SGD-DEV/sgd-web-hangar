@@ -37,13 +37,15 @@ function ColorInput({ value, onChange, presets, allowEmpty, emptyLabel }: {
 }
 
 export default function AppearancePage() {
-  const { settings: saved, set: setSaved } = useAppearance()
+  const { settings: saved, set: setSaved, error: loadError, load } = useAppearance()
   const [form, setForm] = useState<AppearanceSettings | null>(saved)
   const [texts, setTexts] = useState<Record<string, [string, string]>>({})
   const [preview, setPreview] = useState('')
   const previewTimer = useRef<number>()
 
   useEffect(() => { if (saved && !form) setForm(saved) }, [saved, form])
+  // The startup load may have failed; try again when the page opens.
+  useEffect(() => { if (!useAppearance.getState().settings) load() }, [load])
   useEffect(() => { call<Record<string, [string, string]>>('GetStarterTexts').then(t => setTexts(t || {})).catch(() => {}) }, [])
 
   // Live preview: accent applies to Hangar itself at once, the start page
@@ -78,7 +80,18 @@ export default function AppearancePage() {
     setForm(f => f && { ...f, logo: '' })
   }, { error: 'Logo konnte nicht entfernt werden' })
 
-  if (!form) return <div className="flex-1 p-6 text-text-dim text-sm">Lädt…</div>
+  if (!form) {
+    return (
+      <div className="flex-1 p-6 text-sm">
+        {loadError
+          ? <div className="space-y-3">
+              <p className="text-status-red">Erscheinungsbild konnte nicht geladen werden: <span className="font-mono">{loadError}</span></p>
+              <Button onClick={() => load()}>Erneut versuchen</Button>
+            </div>
+          : <span className="text-text-dim">Lädt…</span>}
+      </div>
+    )
+  }
 
   const set = (patch: Partial<AppearanceSettings>) => setForm(f => f && { ...f, ...patch })
   const setStarter = (patch: Partial<AppearanceSettings['starter']>) => setForm(f => f && { ...f, starter: { ...f.starter, ...patch } })
