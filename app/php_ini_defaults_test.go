@@ -49,6 +49,11 @@ func TestHangarINIDefaults(t *testing.T) {
 		t.Fatalf("custom settings were rewritten: %q", out)
 	}
 
+	// A wrong extension=opcache line is disabled.
+	if out, _ := hangarINIDefaults([]byte("zend_extension=opcache\nextension=opcache"), ""); strings.Contains(string(out), "\nextension=opcache") {
+		t.Errorf("extension=opcache left active: %q", out)
+	}
+
 	// Without a bundle the CA lines stay commented.
 	if out, _ := hangarINIDefaults([]byte(";curl.cainfo =\n"), ""); string(out) != ";curl.cainfo =\n" {
 		t.Errorf("CA line changed without bundle: %q", out)

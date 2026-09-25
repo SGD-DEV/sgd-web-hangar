@@ -46,6 +46,9 @@ var staticINIRewrites = []iniRewrite{
 	{stockLine(";opcache.max_accelerated_files=10000"), "opcache.max_accelerated_files=20000$1"},
 	{stockLine(";opcache.validate_timestamps=1"), "opcache.validate_timestamps=1$1"},
 	{stockLine(";opcache.revalidate_freq=2"), "opcache.revalidate_freq=2$1"},
+	// OPcache is a Zend extension; an extension=opcache line (written by an
+	// older extension toggle) only produces a startup warning.
+	{regexp.MustCompile(`(?m)^extension=(php_)?opcache(\.dll)?[ \t]*(\r?)$`), ";extension=opcache ; wrong directive, loaded via zend_extension$3"},
 	// Resolved include paths are cached per worker; keep them longer.
 	{stockLine(";realpath_cache_ttl = 120"), "realpath_cache_ttl = 600$1"},
 }

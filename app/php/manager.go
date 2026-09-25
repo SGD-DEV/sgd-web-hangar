@@ -189,13 +189,16 @@ func (m *Manager) GetExtensions(version string) []ExtensionInfo {
 				line := strings.TrimSpace(scanner.Text())
 				enabled := false
 				var ext string
-				if strings.HasPrefix(line, "extension=") {
-					ext = strings.TrimPrefix(line, "extension=")
-					enabled = true
-				} else if strings.HasPrefix(line, ";extension=") {
+				switch {
+				case strings.HasPrefix(line, "zend_extension="):
+					ext, enabled = strings.TrimPrefix(line, "zend_extension="), true
+				case strings.HasPrefix(line, ";zend_extension="):
+					ext = strings.TrimPrefix(line, ";zend_extension=")
+				case strings.HasPrefix(line, "extension="):
+					ext, enabled = strings.TrimPrefix(line, "extension="), true
+				case strings.HasPrefix(line, ";extension="):
 					ext = strings.TrimPrefix(line, ";extension=")
-					enabled = false
-				} else {
+				default:
 					continue
 				}
 				ext = strings.Trim(ext, "\"' ")
@@ -224,6 +227,10 @@ func (m *Manager) GetExtensions(version string) []ExtensionInfo {
 	return result
 }
 
+// zendExtensions must be loaded with zend_extension=, not extension=
+// (PHP warns "Invalid library (appears to be a Zend Extension)").
+var zendExtensions = map[string]bool{"opcache": true, "xdebug": true}
+
 // ToggleExtension enables or disables a PHP extension in php.ini
 func (m *Manager) ToggleExtension(version, extName string, enable bool) error {
 	iniMgr := NewIniManager(m.paths)
@@ -247,12 +254,21 @@ func (m *Manager) ToggleExtension(version, extName string, enable bool) error {
 	}
 
 	lines := strings.Split(string(data), "\n")
-	extLine := fmt.Sprintf("extension=%s", extName)
-	commentedLine := fmt.Sprintf(";extension=%s", extName)
+	directive := "extension"
+	if zendExtensions[extName] {
+		directive = "zend_extension"
+	}
+	extLine := fmt.Sprintf("%s=%s", directive, extName)
+	commentedLine := ";" + extLine
 
 	found := false
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
+		if directive == "zend_extension" && (trimmed == "extension="+extName || trimmed == "extension=php_"+extName+".dll") {
+			// Written by an older Hangar with the wrong directive.
+			lines[i] = ";" + trimmed + " ; wrong directive, loaded via zend_extension"
+			continue
+		}
 		// Match "extension=extName" or ";extension=extName"
 		if trimmed == extLine || trimmed == commentedLine ||
 			trimmed == "extension=php_"+extName+".dll" || trimmed == ";extension=php_"+extName+".dll" ||
@@ -267,6 +283,9 @@ func (m *Manager) ToggleExtension(version, extName string, enable bool) error {
 	}
 
 	if !found && enable {
+		if n := len(lines); n > 0 && strings.TrimSpace(lines[n-1]) != "" {
+			lines = append(lines, "")
+		}
 		lines = append(lines, extLine)
 	}
 
