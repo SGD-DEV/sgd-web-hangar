@@ -715,6 +715,9 @@ func (a *App) UpdateProject(name string, project projects.Project) error {
 }
 
 func (a *App) DeleteProject(name string) error {
+	if a.appInstalled(name) {
+		return fmt.Errorf("remove the app service first (App dialog > Remove service)")
+	}
 	return a.projectManager.Delete(name)
 }
 

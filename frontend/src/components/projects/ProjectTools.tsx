@@ -85,7 +85,9 @@ export function DatabaseDialog({ project, onClose, onChanged }: {
           <p className="text-[11px] text-text-dim">
             {target
               ? <>These values are in the project's <span className="font-mono">{target}</span>. Plain PHP can read <span className="font-mono">.env</span> with <span className="font-mono">parse_ini_file(__DIR__ . '/.env')</span>; the web server never serves it.</>
-              : 'Proxy projects have no folder - put these values into your app\'s config.'}
+              : project.app
+                ? 'The app gets these values as environment variables (DB_HOST, DB_DATABASE, ..., DATABASE_URL); its service restarts on change.'
+                : 'Hangar writes no config file for proxy projects - put these values into your app\'s config.'}
           </p>
           <div className="flex justify-between gap-2 pt-2 border-t border-border">
             <Button variant="danger" busy={detaching} onClick={() => {
@@ -218,7 +220,9 @@ export function MailDialog({ project, onClose, onChanged }: {
           {isWP
             ? <>WordPress: written to the must-use plugin <span className="font-mono">wp-content/mu-plugins/hangar-smtp.php</span> - no SMTP plugin needed.</>
             : project.framework === 'proxy'
-              ? 'Proxy projects have no folder - use these values in your app.'
+              ? (project.app
+                ? 'The app gets these values as environment variables (MAIL_HOST, MAIL_PORT, ..., MAILER_DSN); its service restarts on change.'
+                : 'Hangar writes no config file for proxy projects - use these values in your app.')
               : <>Written to <span className="font-mono">.env</span> as MAIL_HOST, MAIL_PORT, MAIL_USERNAME, ... (Laravel names). Plain PHP: <span className="font-mono">parse_ini_file(__DIR__ . '/.env')</span> and send with PHPMailer.</>}
         </p>
 

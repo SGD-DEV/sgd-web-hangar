@@ -52,6 +52,13 @@ func (a *App) saveProjectConfig(p projects.Project) (projects.Project, []string,
 	if err := a.projectManager.Update(p.Name, p); err != nil {
 		return p, files, err
 	}
+	// An app gets its database and mail settings as environment variables.
+	if p.App != nil && a.appInstalled(p.Name) {
+		if err := a.applyAppService(p, true); err != nil {
+			return p, files, fmt.Errorf("saved, but updating the app service failed: %w", err)
+		}
+		files = append(files, "service environment")
+	}
 	return p, files, nil
 }
 

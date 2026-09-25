@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { FolderOpen, Plus, Trash2, Search, X, Loader2, Lock, Unlock, Pencil, Globe, Home, ShieldCheck, Copy, Database, Mail, GitBranch } from 'lucide-react'
+import { FolderOpen, Plus, Trash2, Search, X, Loader2, Lock, Unlock, Pencil, Globe, Home, ShieldCheck, Copy, Database, Mail, GitBranch, Play } from 'lucide-react'
 import { call, toast, useAction, errorMessage } from '../../lib/api'
 import { Button, Modal, Field, inputCls } from '../ui/Controls'
 import { DatabaseDialog, MailDialog, GitDialog } from './ProjectTools'
+import { AppDialog } from './AppDialog'
 
 export interface Project {
   name: string
@@ -18,6 +19,7 @@ export interface Project {
   local_only?: boolean
   database?: ProjectDatabase
   mail?: ProjectMail
+  app?: { command: string; port: number; build_command?: string; env?: string[] }
 }
 
 export interface ProjectDatabase {
@@ -61,7 +63,7 @@ export default function ProjectList() {
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [editing, setEditing] = useState<Project | null>(null)
-  const [tool, setTool] = useState<{ kind: 'db' | 'mail' | 'git'; project: Project } | null>(null)
+  const [tool, setTool] = useState<{ kind: 'db' | 'mail' | 'git' | 'app'; project: Project } | null>(null)
   const [projectsRoot, setProjectsRoot] = useState('')
   const [phpVersions, setPhpVersions] = useState<PHPVersion[]>([])
   const [webServer, setWebServer] = useState('apache')
@@ -148,10 +150,15 @@ export default function ProjectList() {
         <CreateProject
           projectsRoot={projectsRoot}
           onClose={() => setShowCreate(false)}
-          onCreated={async (name, detail) => {
+          onCreated={async (name, detail, openApp) => {
             setShowCreate(false)
             await loadProjects()
             toast.success(`Project ${name} created`, detail || 'Use the pencil icon to add a public domain for the Cloudflare Tunnel.')
+            if (openApp) {
+              const all = await call<Project[]>('GetProjects')
+              const me = all.find(x => x.name === name)
+              if (me) setTool({ kind: 'app', project: me })
+            }
           }}
         />
       )}
@@ -161,6 +168,9 @@ export default function ProjectList() {
       )}
       {tool?.kind === 'mail' && (
         <MailDialog project={tool.project} onClose={() => setTool(null)} onChanged={() => loadProjects()} />
+      )}
+      {tool?.kind === 'app' && (
+        <AppDialog project={tool.project} onClose={() => setTool(null)} onChanged={() => loadProjects()} />
       )}
       {tool?.kind === 'git' && (
         <GitDialog project={tool.project} onClose={() => setTool(null)} />
@@ -231,6 +241,13 @@ export default function ProjectList() {
                   >
                     {p.ssl_enabled ? <Lock size={13} /> : <Unlock size={13} />}
                   </IconButton>
+                  {(p.framework === 'proxy' || p.framework === 'unknown') && (
+                    <IconButton onClick={() => setTool({ kind: 'app', project: p })}
+                      title={p.app ? `App: ${p.app.command} (port ${p.app.port})` : 'Run as app (Node, Python, ...) - start command and service'}
+                      className={p.app ? 'text-accent' : ''}>
+                      <Play size={13} />
+                    </IconButton>
+                  )}
                   <IconButton onClick={() => setTool({ kind: 'db', project: p })}
                     title={p.database ? `Database: ${p.database.name} (${p.database.type})` : 'Database - create or assign one'}
                     className={p.database ? 'text-status-green' : ''}>
@@ -409,13 +426,14 @@ const frameworks = [
   { value: 'symfony', label: 'Symfony', placeholder: '7.*', description: 'composer create-project symfony/skeleton' },
   { value: 'wordpress', label: 'WordPress', placeholder: '', description: 'latest German version, database included' },
   { value: 'clone', label: 'Clone from Git', placeholder: '', description: 'https URL of a GitHub / GitLab / Gitea repository' },
-  { value: 'proxy', label: 'Proxy', placeholder: '', description: 'Forward to an app already running (Node, Python, Go, ...)' },
+  { value: 'app', label: 'Node / Python app', placeholder: '', description: 'Hangar runs it as a Windows service' },
+  { value: 'proxy', label: 'Proxy', placeholder: '', description: 'Forward to an app already running elsewhere' },
 ]
 
 function CreateProject({ projectsRoot, onClose, onCreated }: {
   projectsRoot: string
   onClose: () => void
-  onCreated: (name: string, detail?: string) => void
+  onCreated: (name: string, detail?: string, openApp?: boolean) => void
 }) {
   const [p, setP] = useState({ name: '', framework: 'plain', version: '', proxyTarget: '', path: '', laravelDocRoot: 'public', gitUrl: '' })
   const [nameTouched, setNameTouched] = useState(false)
@@ -430,7 +448,19 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
     setCreating(true)
     try {
       let detail: string | undefined
-      if (p.framework === 'clone') {
+      let openApp = false
+      if (p.framework === 'app') {
+        const port = await call<number>('SuggestAppPort')
+        await call('CreateProjectWithOptions', {
+          name,
+          path: p.path.trim() || `${projectsRoot}\\${name}`,
+          domain: '',
+          framework: 'proxy',
+          proxy_target: `http://127.0.0.1:${port}`,
+        })
+        detail = 'Now set the start command and install the service.'
+        openApp = true
+      } else if (p.framework === 'clone') {
         await call('CloneProject', { url: p.gitUrl.trim(), name, path: p.path.trim() })
         detail = 'Cloned. Run composer install / npm install in the terminal if the project needs it.'
       } else if (p.framework === 'proxy' || p.framework === 'plain') {
@@ -451,7 +481,7 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
           if (me) await call('UpdateProjectSettings', name, settingsOf(me, { document_root: me.path }))
         }
       }
-      onCreated(name, detail)
+      onCreated(name, detail, openApp)
     } catch (e) {
       setError(errorMessage(e))
     } finally {

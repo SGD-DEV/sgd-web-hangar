@@ -33,6 +33,16 @@ type Project struct {
 	Database *Database `json:"database,omitempty"`
 	// Mail is the SMTP server the project sends through. Nil means Mailpit.
 	Mail *Mail `json:"mail,omitempty"`
+	// App is set for Node/Python/... projects that Hangar runs as a Windows
+	// service; the web server proxies to App.Port.
+	App *AppService `json:"app,omitempty"`
+}
+
+type AppService struct {
+	Command      string   `json:"command"`                 // e.g. "npm start", "python app.py"
+	Port         int      `json:"port"`                    // passed as PORT, proxied to
+	BuildCommand string   `json:"build_command,omitempty"` // run by Deploy, e.g. "npm ci && npm run build"
+	Env          []string `json:"env,omitempty"`           // extra KEY=VALUE lines
 }
 
 type Database struct {
