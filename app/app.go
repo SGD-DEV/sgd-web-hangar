@@ -275,14 +275,19 @@ func (a *App) ensurePHPIni() {
 		phpDir := a.paths.PHPPath(v.Version)
 		iniPath := filepath.Join(phpDir, "php.ini")
 		if _, err := os.Stat(iniPath); err == nil {
-			continue // already exists - don't overwrite user customizations
+			// Already exists - don't overwrite user customizations, only
+			// move the stock mail settings over to Mailpit.
+			if err := pointPHPIniAtMailpit(iniPath); err != nil {
+				runtime.LogWarningf(a.ctx, "devour: mail settings for PHP %s: %v", v.Version, err)
+			}
+			continue
 		}
 		// Create from production template
 		prodIni := filepath.Join(phpDir, "php.ini-production")
 		if _, err := os.Stat(prodIni); err == nil {
 			data, err := os.ReadFile(prodIni)
 			if err == nil {
-				patched := applyDefaultPHPExtensions(data, phpDir)
+				patched, _ := mailpitMailSettings(applyDefaultPHPExtensions(data, phpDir))
 				if err := os.WriteFile(iniPath, patched, 0644); err == nil {
 					runtime.LogInfof(a.ctx, "devour: created php.ini for PHP %s with default extensions", v.Version)
 				}
@@ -1919,7 +1924,7 @@ func (a *App) IsToolInstalled(tool string) bool {
 // OpenPhpMyAdmin returns a URL the frontend can open in the user's browser.
 // phpMyAdmin is a PHP web app, not an exe - it needs Apache (or Nginx) +
 // PHP serving its files. We auto-create a vhost the first time, then point
-// the user at http://phpmyadmin.test.
+// the user at http://phpmyadmin.db.
 //
 // Requirements: phpmyadmin package installed, Apache or Nginx running,
 // at least one PHP version active. Returns an error if any are missing so
@@ -1967,11 +1972,11 @@ func (a *App) OpenPhpMyAdmin() (string, error) {
 	if err := writePhpMyAdminConfig(pmaDir, a.dbPort("mysql")); err != nil {
 		return "", fmt.Errorf("writing phpMyAdmin config: %w", err)
 	}
-	// Register phpmyadmin.test as a local-only project (auto-login as root
+	// Register phpmyadmin.db as a local-only project (auto-login as root
 	// must never be reachable from the LAN or the tunnel), then make sure
 	// the active web server is up and serving it.
-	if err := a.ensureToolProject("phpmyadmin", "phpmyadmin.test", pmaDir); err != nil {
-		return "", fmt.Errorf("registering phpmyadmin.test: %w", err)
+	if err := a.ensureToolProject("phpmyadmin", "phpmyadmin.db", pmaDir); err != nil {
+		return "", fmt.Errorf("registering phpmyadmin.db: %w", err)
 	}
 	if err := a.ensureWebServer(); err != nil {
 		return "", err

@@ -56,10 +56,11 @@ func (m *Mailpit) Start() error {
 		return fmt.Errorf("mailpit: %w", err)
 	}
 
-	// Mailpit args: SMTP on 1025, HTTP UI on 8025
+	// Mailpit args: SMTP on 1025, HTTP UI on 8025. Loopback only: neither
+	// port has a password, so anyone on the LAN could read the caught mails.
 	m.cmd = exec.Command(binPath,
-		"--smtp", "0.0.0.0:1025",
-		"--listen", "0.0.0.0:8025",
+		"--smtp", "127.0.0.1:1025",
+		"--listen", "127.0.0.1:8025",
 	)
 	m.cmd.Dir = filepath.Dir(binPath)
 	services.HideWindow(m.cmd)

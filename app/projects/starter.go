@@ -28,7 +28,7 @@ func isDirNonEmpty(dir string) bool {
 }
 
 const starterPage = `<!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -44,9 +44,9 @@ const starterPage = `<!DOCTYPE html>
 </head>
 <body>
 <main>
-  <h1>{{NAME}} is live</h1>
-  <p>This page is served by Hangar with PHP <code><?= PHP_VERSION ?></code>.</p>
-  <p>Replace <code>index.php</code> in <code>{{DIR}}</code> with your site.</p>
+  <h1>{{NAME}} ist online</h1>
+  <p>Diese Seite wird von Hangar mit PHP <code><?= PHP_VERSION ?></code> ausgeliefert.</p>
+  <p>Ersetze <code>index.php</code> in <code>{{DIR}}</code> durch deine Website.</p>
 </main>
 </body>
 </html>
