@@ -58,7 +58,7 @@ export default function DatabasesPage({ services }: { services: Record<string, S
       const list = await call<string[]>('ListDatabases', t)
       setDbs(d => ({ ...d, [t]: list || [] }))
     } catch (e) {
-      toast.error(`Could not list ${t} databases`, errorMessage(e))
+      toast.error(`${t}-Datenbanken konnten nicht geladen werden`, errorMessage(e))
     } finally {
       setLoading(l => ({ ...l, [t]: false }))
     }
@@ -88,34 +88,34 @@ export default function DatabasesPage({ services }: { services: Record<string, S
   const [openPMA, openingPMA] = useAction(async () => {
     const url = await call<string>('OpenPhpMyAdmin')
     await call('OpenURL', url)
-  }, { error: 'Could not open phpMyAdmin' })
+  }, { error: 'phpMyAdmin konnte nicht geöffnet werden' })
   const [openAdminer, openingAdminer] = useAction(async () => {
     const url = await call<string>('OpenAdminer')
     await call('OpenURL', url)
-  }, { error: 'Could not open Adminer' })
+  }, { error: 'Adminer konnte nicht geöffnet werden' })
   const [openPgAdmin, openingPgAdmin] = useAction(() => call('OpenPgAdmin'),
-    { success: 'pgAdmin is starting (first start takes a few seconds)', error: 'Could not open pgAdmin' })
+    { success: 'pgAdmin startet (der erste Start dauert ein paar Sekunden)', error: 'pgAdmin konnte nicht geöffnet werden' })
   const [launchTool] = useAction((t: ToolKey) => t === 'heidisql' ? call('OpenHeidiSQL') : call('LaunchTool', t, ''),
-    { error: 'Could not launch tool' })
+    { error: 'Programm konnte nicht gestartet werden' })
 
   const [backup, backingUp] = useAction(async (t: DBType, name: string) => {
     const path = await call<string>('BackupDatabase', t, name)
     loadBackups()
     return path
-  }, { success: p => `Backup written: ${p.split('\\').pop()}`, error: 'Backup failed' })
+  }, { success: p => `Backup gespeichert: ${p.split('\\').pop()}`, error: 'Backup fehlgeschlagen' })
 
   const [drop] = useAction(async (t: DBType, name: string) => {
     const path = await call<string>('DropDatabase', t, name)
     await loadDatabases(t)
     loadBackups()
     return path
-  }, { success: p => `Database deleted. A backup was saved first: ${p.split('\\').pop()}`, error: 'Could not delete database' })
+  }, { success: p => `Datenbank gelöscht. Vorher wurde ein Backup gespeichert: ${p.split('\\').pop()}`, error: 'Datenbank konnte nicht gelöscht werden' })
 
   async function confirmDrop(t: DBType, name: string) {
     if (await confirmDialog({
-      title: `Delete database ${name}?`,
-      message: `Hangar saves a backup to the backups folder first.\nThe user with the same name is removed too, unless it has rights on another database.`,
-      confirmLabel: 'Delete database',
+      title: `Datenbank ${name} löschen?`,
+      message: `Hangar speichert vorher ein Backup im Backup-Ordner.\nDer gleichnamige Benutzer wird mit entfernt, außer er hat Rechte auf eine andere Datenbank.`,
+      confirmLabel: 'Datenbank löschen',
       danger: true,
     })) drop(t, name)
   }
@@ -123,27 +123,27 @@ export default function DatabasesPage({ services }: { services: Record<string, S
   return (
     <div className="flex-1 p-6 overflow-y-auto">
       <div className="mb-6">
-        <h2 className="text-lg font-medium">Databases</h2>
-        <p className="text-xs text-text-muted mt-1">Create databases for your sites, back them up, and open them in a management tool.</p>
+        <h2 className="text-lg font-medium">Datenbanken</h2>
+        <p className="text-xs text-text-muted mt-1">Datenbanken für deine Seiten anlegen, sichern und in einem Verwaltungsprogramm öffnen.</p>
       </div>
 
       <Card className="p-4 mb-4">
-        <p className="text-xs text-text-muted mb-3">Web tools (open in the browser, only reachable from this machine, log in automatically)</p>
+        <p className="text-xs text-text-muted mb-3">Web-Tools (öffnen im Browser, nur von diesem Rechner erreichbar, melden sich automatisch an)</p>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="primary" busy={openingPMA} disabled={!mysqlRunning} onClick={openPMA} icon={<Table2 size={12} />}
-            title={mysqlRunning ? 'phpMyAdmin for MySQL' : 'Start MySQL first'}>phpMyAdmin</Button>
+            title={mysqlRunning ? 'phpMyAdmin für MySQL' : 'Starte zuerst MySQL'}>phpMyAdmin</Button>
           <Button variant="primary" busy={openingAdminer} onClick={openAdminer} icon={<Globe size={12} />}
-            title="Adminer: one page for MySQL and PostgreSQL">Adminer</Button>
+            title="Adminer: eine Seite für MySQL und PostgreSQL">Adminer</Button>
           <Button variant="primary" busy={openingPgAdmin} onClick={openPgAdmin} icon={<Elephant size={12} />}
-            title="pgAdmin 4 (desktop app shipped with PostgreSQL)">pgAdmin</Button>
+            title="pgAdmin 4 (Desktop-Programm, wird mit PostgreSQL geliefert)">pgAdmin</Button>
           {DESKTOP_TOOLS.filter(t => installedTools[t.key]).map(t => {
             const Icon = t.icon
             return <Button key={t.key} onClick={() => launchTool(t.key)} icon={<Icon size={12} />}>{t.label}</Button>
           })}
         </div>
         <p className="text-[11px] text-text-dim mt-3">
-          Adminer login: system <span className="font-mono">MySQL</span>, server <span className="font-mono">127.0.0.1</span>, user <span className="font-mono">root</span>, empty password
-          (PostgreSQL: user <span className="font-mono">postgres</span>).
+          Adminer-Login: System <span className="font-mono">MySQL</span>, Server <span className="font-mono">127.0.0.1</span>, Benutzer <span className="font-mono">root</span>, leeres Passwort
+          (PostgreSQL: Benutzer <span className="font-mono">postgres</span>).
         </p>
       </Card>
 
@@ -163,20 +163,20 @@ export default function DatabasesPage({ services }: { services: Record<string, S
                 </div>
                 <div className="flex items-center gap-2">
                   {isRunning && (
-                    <button onClick={() => loadDatabases(db.type)} className="p-1.5 text-text-dim hover:text-text-primary" title="Refresh">
+                    <button onClick={() => loadDatabases(db.type)} className="p-1.5 text-text-dim hover:text-text-primary" title="Aktualisieren">
                       <RefreshCw size={12} className={loading[db.type] ? 'animate-spin' : ''} />
                     </button>
                   )}
                   <Button size="xs" variant="primary" disabled={!isRunning} onClick={() => setCreating(db.type)} icon={<Plus size={11} />}>
-                    New database
+                    Neue Datenbank
                   </Button>
                 </div>
               </div>
               <div className="px-4 py-3">
                 {!isRunning ? (
-                  <p className="text-xs text-text-dim">Not running - start {db.label} on the Servers page.</p>
+                  <p className="text-xs text-text-dim">Läuft nicht - starte {db.label} auf der Seite Server.</p>
                 ) : list.length === 0 ? (
-                  <p className="text-xs text-text-dim">{loading[db.type] ? 'Loading...' : 'No databases yet.'}</p>
+                  <p className="text-xs text-text-dim">{loading[db.type] ? 'Lädt…' : 'Noch keine Datenbanken.'}</p>
                 ) : (
                   <div className="divide-y divide-border">
                     {list.map(name => {
@@ -189,8 +189,8 @@ export default function DatabasesPage({ services }: { services: Record<string, S
                           </span>
                           {!isSystem && (
                             <div className="flex items-center gap-1">
-                              <Button size="xs" variant="ghost" busy={backingUp} onClick={() => backup(db.type, name)} icon={<Download size={11} />} title="Dump to the backups folder">Backup</Button>
-                              <Button size="xs" variant="ghost" onClick={() => confirmDrop(db.type, name)} icon={<Trash2 size={11} />} title="Delete (after an automatic backup)">Delete</Button>
+                              <Button size="xs" variant="ghost" busy={backingUp} onClick={() => backup(db.type, name)} icon={<Download size={11} />} title="In den Backup-Ordner sichern">Backup</Button>
+                              <Button size="xs" variant="ghost" onClick={() => confirmDrop(db.type, name)} icon={<Trash2 size={11} />} title="Löschen (nach automatischem Backup)">Löschen</Button>
                             </div>
                           )}
                         </div>
@@ -208,18 +208,18 @@ export default function DatabasesPage({ services }: { services: Record<string, S
             <span className="font-medium text-sm">Backups</span>
             {backups[0] && (
               <Button size="xs" icon={<FolderOpen size={11} />}
-                onClick={() => call('OpenInExplorer', backups[0].path.replace(/\\[^\\]+\\[^\\]+$/, '')).catch(e => toast.error('Open failed', errorMessage(e)))}>
-                Open folder
+                onClick={() => call('OpenInExplorer', backups[0].path.replace(/\\[^\\]+\\[^\\]+$/, '')).catch(e => toast.error('Öffnen fehlgeschlagen', errorMessage(e)))}>
+                Ordner öffnen
               </Button>
             )}
           </div>
           <div className="px-4 py-3">
-            {backups.length === 0 ? <p className="text-xs text-text-dim">No backups yet.</p> : (
+            {backups.length === 0 ? <p className="text-xs text-text-dim">Noch keine Backups.</p> : (
               <div className="divide-y divide-border">
                 {backups.slice(0, 15).map(b => (
                   <div key={b.path} className="flex items-center justify-between py-1.5 text-xs">
                     <span className="font-mono text-text-primary">{b.file}</span>
-                    <span className="text-text-dim">{b.type} · {(b.size / 1024).toFixed(0)} KB · {new Date(b.mod_time).toLocaleString()}</span>
+                    <span className="text-text-dim">{b.type} · {(b.size / 1024).toFixed(0)} KB · {new Date(b.mod_time).toLocaleString('de-DE')}</span>
                   </div>
                 ))}
               </div>
@@ -247,23 +247,23 @@ function CreateDatabase({ type, onClose, onCreated }: { type: DBType; onClose: (
   const [create, busy] = useAction(async () => {
     const c = await call<Credentials>('CreateDatabase', type, name.trim(), user.trim(), password)
     onCreated(c)
-  }, { success: `Database ${name} created`, error: 'Could not create database' })
+  }, { success: `Datenbank ${name} angelegt`, error: 'Datenbank konnte nicht angelegt werden' })
 
   return (
-    <Modal title={`New ${type === 'mysql' ? 'MySQL' : 'PostgreSQL'} database`} onClose={onClose} width="max-w-md">
+    <Modal title={`Neue ${type === 'mysql' ? 'MySQL' : 'PostgreSQL'}-Datenbank`} onClose={onClose} width="max-w-md">
       <div className="space-y-3">
-        <Field label="Database name" hint="Letters, digits and _ (e.g. wordpress_blog)">
+        <Field label="Datenbankname" hint="Buchstaben, Ziffern und _ (z. B. wordpress_blog)">
           <input className={inputCls} value={name} onChange={e => setName(e.target.value)} autoFocus />
         </Field>
-        <Field label="User" hint="Leave empty to use the database name. The user gets full rights on this database only.">
-          <input className={inputCls} value={user} onChange={e => setUser(e.target.value)} placeholder={name || 'same as database'} />
+        <Field label="Benutzer" hint="Leer lassen, um den Datenbanknamen zu verwenden. Der Benutzer bekommt volle Rechte nur auf diese Datenbank.">
+          <input className={inputCls} value={user} onChange={e => setUser(e.target.value)} placeholder={name || 'wie die Datenbank'} />
         </Field>
-        <Field label="Password" hint="Leave empty to generate a strong one.">
-          <input className={inputCls} value={password} onChange={e => setPassword(e.target.value)} placeholder="generated" />
+        <Field label="Passwort" hint="Leer lassen, um ein sicheres zu erzeugen.">
+          <input className={inputCls} value={password} onChange={e => setPassword(e.target.value)} placeholder="wird erzeugt" />
         </Field>
         <div className="flex justify-end gap-2 pt-2">
-          <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" busy={busy} disabled={!name.trim()} onClick={create}>Create</Button>
+          <Button onClick={onClose}>Abbrechen</Button>
+          <Button variant="primary" busy={busy} disabled={!name.trim()} onClick={create}>Anlegen</Button>
         </div>
       </div>
     </Modal>
@@ -272,24 +272,24 @@ function CreateDatabase({ type, onClose, onCreated }: { type: DBType; onClose: (
 
 function CredentialsModal({ c, onClose }: { c: Credentials; onClose: () => void }) {
   const rows: [string, string][] = [
-    ['Host', c.host], ['Port', String(c.port)], ['Database', c.database], ['User', c.user], ['Password', c.password],
+    ['Host', c.host], ['Port', String(c.port)], ['Datenbank', c.database], ['Benutzer', c.user], ['Passwort', c.password],
   ]
   const text = rows.map(([k, v]) => `${k}: ${v}`).join('\n')
   return (
-    <Modal title="Database ready" onClose={onClose} width="max-w-md">
-      <p className="text-xs text-text-muted mb-3">Paste these into your site's installer (e.g. WordPress wp-config / Laravel .env). The password is shown only now.</p>
+    <Modal title="Datenbank bereit" onClose={onClose} width="max-w-md">
+      <p className="text-xs text-text-muted mb-3">Trage diese Daten in den Installer deiner Seite ein (z. B. WordPress wp-config / Laravel .env). Das Passwort wird nur jetzt angezeigt.</p>
       <div className="bg-bg-primary border border-border rounded-lg divide-y divide-border">
         {rows.map(([k, v]) => (
           <div key={k} className="flex items-center justify-between px-3 py-2">
             <span className="text-xs text-text-muted w-20">{k}</span>
             <span className="text-xs font-mono flex-1 select-text">{v}</span>
-            <button onClick={() => navigator.clipboard.writeText(v).then(() => toast.info(`${k} copied`))} className="text-text-dim hover:text-text-primary" title="Copy"><Copy size={11} /></button>
+            <button onClick={() => navigator.clipboard.writeText(v).then(() => toast.info(`${k} kopiert`))} className="text-text-dim hover:text-text-primary" title="Kopieren"><Copy size={11} /></button>
           </div>
         ))}
       </div>
       <div className="flex justify-end gap-2 pt-4">
-        <Button icon={<Copy size={12} />} onClick={() => navigator.clipboard.writeText(text).then(() => toast.info('All details copied'))}>Copy all</Button>
-        <Button variant="primary" onClick={onClose}>Done</Button>
+        <Button icon={<Copy size={12} />} onClick={() => navigator.clipboard.writeText(text).then(() => toast.info('Alle Daten kopiert'))}>Alles kopieren</Button>
+        <Button variant="primary" onClick={onClose}>Fertig</Button>
       </div>
     </Modal>
   )

@@ -20,9 +20,9 @@ export default function StatusBar({ services }: StatusBarProps) {
         <span className="font-mono">v1.0.0</span>
         <span>
           {running > 0 ? (
-            <span className="text-status-green">● {running}/{total} services running</span>
+            <span className="text-status-green">● {running}/{total} Dienste laufen</span>
           ) : (
-            <span className="text-text-dim">○ No services running</span>
+            <span className="text-text-dim">○ Keine Dienste aktiv</span>
           )}
         </span>
       </div>

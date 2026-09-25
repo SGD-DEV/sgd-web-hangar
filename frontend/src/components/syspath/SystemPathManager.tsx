@@ -53,7 +53,7 @@ export default function SystemPathManager() {
     try {
       // @ts-ignore
       await window.go.app.App.SetActiveRuntimeOnPath(runtime, version)
-      setNotice(`${runtime} ${version} is now on PATH. Open a new terminal to pick up the change.`)
+      setNotice(`${runtime} ${version} ist jetzt im PATH. Öffne ein neues Terminal, damit die Änderung greift.`)
       await load()
     } catch (err) {
       setError(String(err))
@@ -62,7 +62,7 @@ export default function SystemPathManager() {
 
   async function handleRemove(entry: PathEntry) {
     if (entry.scope === 'system') {
-      setError('System-scope entries require admin elevation. Use Windows Settings → Environment Variables to remove these.')
+      setError('System-Einträge brauchen Administratorrechte. Entferne sie über Windows-Einstellungen → Umgebungsvariablen.')
       return
     }
     setError('')
@@ -70,7 +70,7 @@ export default function SystemPathManager() {
     try {
       // @ts-ignore
       await window.go.app.App.RemoveSystemPathEntry(entry.path, entry.scope)
-      setNotice('Removed. Open a new terminal to see the change.')
+      setNotice('Entfernt. Öffne ein neues Terminal, um die Änderung zu sehen.')
       await load()
     } catch (err) {
       setError(String(err))
@@ -85,7 +85,7 @@ export default function SystemPathManager() {
       // @ts-ignore
       await window.go.app.App.AddSystemPathEntry(newPath.trim())
       setNewPath('')
-      setNotice('Added to user PATH. Open a new terminal to see the change.')
+      setNotice('Zum Benutzer-PATH hinzugefügt. Öffne ein neues Terminal, um die Änderung zu sehen.')
       await load()
     } catch (err) {
       setError(String(err))
@@ -99,18 +99,18 @@ export default function SystemPathManager() {
     <div className="flex-1 p-6 overflow-y-auto">
       <div className="max-w-4xl">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-medium">System PATH</h2>
+          <h2 className="text-lg font-medium">System-PATH</h2>
           <button
             onClick={load}
             className="text-xs text-text-muted hover:text-text-primary flex items-center gap-1.5 px-2 py-1 rounded hover:bg-bg-secondary transition-colors"
           >
-            <RotateCcw size={12} /> Refresh
+            <RotateCcw size={12} /> Aktualisieren
           </button>
         </div>
         <p className="text-sm text-text-muted mb-6">
-          Switch which version of PHP, Node, MySQL, etc. is on your PATH without
-          opening Windows Environment Variables. Changes write to your <strong className="text-text-primary">user</strong> PATH (no admin
-          needed) and broadcast immediately — open a new terminal to see them.
+          Lege fest, welche Version von PHP, Node, MySQL usw. im PATH steht, ohne die Windows-Umgebungsvariablen
+          zu öffnen. Änderungen landen im <strong className="text-text-primary">Benutzer</strong>-PATH (keine Adminrechte
+          nötig) und gelten sofort - öffne ein neues Terminal, um sie zu sehen.
         </p>
 
         {error && (
@@ -128,11 +128,11 @@ export default function SystemPathManager() {
 
         {/* Runtime quick-switch */}
         <div className="mb-8">
-          <h3 className="text-sm font-medium mb-3">Active runtimes</h3>
+          <h3 className="text-sm font-medium mb-3">Aktive Laufzeitumgebungen</h3>
           {loading ? (
-            <p className="text-xs text-text-muted">Loading…</p>
+            <p className="text-xs text-text-muted">Lädt…</p>
           ) : runtimes.length === 0 ? (
-            <p className="text-xs text-text-muted">No runtimes installed yet. Install some from the Packages page.</p>
+            <p className="text-xs text-text-muted">Noch keine Laufzeitumgebungen installiert. Installiere welche auf der Seite Pakete.</p>
           ) : (
             <div className="space-y-2">
               {runtimes.map(rt => {
@@ -150,19 +150,19 @@ export default function SystemPathManager() {
                     <div className="flex-1 min-w-0">
                       {rt.active_version ? (
                         <div className="text-xs">
-                          <span className="text-status-green">● on PATH:</span>{' '}
+                          <span className="text-status-green">● im PATH:</span>{' '}
                           <span className="text-text-primary font-mono">{rt.active_version}</span>
                           <div className="text-text-dim font-mono truncate" title={rt.active_path}>
                             {rt.active_path}
                           </div>
                         </div>
                       ) : (
-                        <div className="text-xs text-text-muted">Not on PATH</div>
+                        <div className="text-xs text-text-muted">Nicht im PATH</div>
                       )}
                     </div>
                     <div className="flex-shrink-0">
                       {noneInstalled ? (
-                        <span className="text-xs text-text-dim italic">no versions installed</span>
+                        <span className="text-xs text-text-dim italic">keine Versionen installiert</span>
                       ) : (
                         <select
                           value={rt.active_version || ''}
@@ -170,7 +170,7 @@ export default function SystemPathManager() {
                           className="px-2 py-1.5 bg-bg-primary border border-border rounded text-xs text-text-primary focus:outline-none focus:border-accent/50"
                         >
                           <option value="" disabled>
-                            Choose…
+                            Auswählen…
                           </option>
                           {installed.map(v => (
                             <option key={v} value={v}>
@@ -190,8 +190,8 @@ export default function SystemPathManager() {
         {/* User PATH list */}
         <div className="mb-6">
           <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
-            User PATH
-            <span className="text-xs font-normal text-text-dim">(HKCU\Environment, no admin needed)</span>
+            Benutzer-PATH
+            <span className="text-xs font-normal text-text-dim">(HKCU\Environment, keine Adminrechte nötig)</span>
           </h3>
 
           <div className="flex gap-2 mb-3">
@@ -199,7 +199,7 @@ export default function SystemPathManager() {
               type="text"
               value={newPath}
               onChange={e => setNewPath(e.target.value)}
-              placeholder={`C:\\path\\to\\add`}
+              placeholder={`C:\\pfad\\zum\\hinzufuegen`}
               className="flex-1 px-3 py-2 bg-bg-secondary border border-border rounded text-sm font-mono text-text-primary placeholder-text-dim focus:outline-none focus:border-accent/50"
             />
             <button
@@ -207,7 +207,7 @@ export default function SystemPathManager() {
               disabled={!newPath.trim()}
               className="px-3 py-2 bg-accent text-on-accent rounded text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-40 flex items-center gap-1.5"
             >
-              <Plus size={14} /> Add
+              <Plus size={14} /> Hinzufügen
             </button>
           </div>
 
@@ -217,8 +217,8 @@ export default function SystemPathManager() {
         {/* System PATH (read-only) */}
         <div>
           <h3 className="text-sm font-medium mb-3 flex items-center gap-2">
-            System PATH
-            <span className="text-xs font-normal text-text-dim">(HKLM, read-only — edit via Windows Settings)</span>
+            System-PATH
+            <span className="text-xs font-normal text-text-dim">(HKLM, nur lesen - Änderungen über die Windows-Einstellungen)</span>
           </h3>
           <PathList entries={systemEntries} onRemove={handleRemove} removable={false} />
         </div>
@@ -226,9 +226,9 @@ export default function SystemPathManager() {
         <div className="mt-8 flex items-start gap-2 text-xs text-text-dim border-t border-border pt-4">
           <Info size={12} className="mt-0.5 flex-shrink-0" />
           <span>
-            User PATH wins over System PATH for your shells, so you don&apos;t need admin
-            access to override a system-installed PHP. Already-open terminals
-            won&apos;t see new entries — close and reopen.
+            Der Benutzer-PATH hat Vorrang vor dem System-PATH, deshalb brauchst du keine Adminrechte,
+            um ein systemweit installiertes PHP zu übersteuern. Bereits offene Terminals
+            sehen neue Einträge nicht - schließen und neu öffnen.
           </span>
         </div>
       </div>
@@ -246,7 +246,7 @@ function PathList({
   removable: boolean
 }) {
   if (entries.length === 0) {
-    return <p className="text-xs text-text-muted italic">No entries.</p>
+    return <p className="text-xs text-text-muted italic">Keine Einträge.</p>
   }
   return (
     <div className="border border-border rounded divide-y divide-border bg-bg-secondary">
@@ -254,7 +254,7 @@ function PathList({
         <div key={`${e.path}-${i}`} className="flex items-center gap-2 px-3 py-2 text-xs">
           <span className="flex-shrink-0 w-4">
             {e.managed ? (
-              <span className="text-accent" title="Hangar-managed">
+              <span className="text-accent" title="Von Hangar verwaltet">
                 ◆
               </span>
             ) : null}
@@ -274,15 +274,15 @@ function PathList({
             </span>
           )}
           {!e.exists && (
-            <span className="text-xs text-status-yellow" title="path does not exist on disk">
-              missing
+            <span className="text-xs text-status-yellow" title="Pfad existiert nicht auf der Festplatte">
+              fehlt
             </span>
           )}
           {removable && (
             <button
               onClick={() => onRemove(e)}
               className="text-text-muted hover:text-status-red transition-colors p-1 rounded hover:bg-bg-primary"
-              title="Remove from PATH"
+              title="Aus dem PATH entfernen"
             >
               <Trash2 size={12} />
             </button>

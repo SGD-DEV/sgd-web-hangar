@@ -234,7 +234,7 @@ func (a *App) SwitchWebServer(target string) error {
 		return err
 	}
 	if !svc.IsInstalled() {
-		return fmt.Errorf("%s is not installed - install it on the Packages page first", target)
+		return fmt.Errorf("%s ist nicht installiert - installiere es zuerst auf der Seite Pakete", target)
 	}
 
 	otherWasRunning := false
@@ -274,7 +274,7 @@ func (a *App) UpdateProjectSettings(name string, s projects.ProjectSettings) (pr
 		return projects.Project{}, err
 	}
 	if err := a.projectManager.EnsureProjectsReady(); err != nil {
-		return p, fmt.Errorf("saved, but preparing the web server failed: %w", err)
+		return p, fmt.Errorf("gespeichert, aber der Webserver konnte nicht vorbereitet werden: %w", err)
 	}
 	return p, nil
 }

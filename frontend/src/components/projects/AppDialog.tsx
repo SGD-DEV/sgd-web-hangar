@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Download, RefreshCw } from 'lucide-react'
 import { call, useAction, confirmDialog } from '../../lib/api'
+import { statusLabel } from '../../lib/i18n'
 import { Button, Modal, Field, inputCls } from '../ui/Controls'
 import type { Project } from './ProjectList'
 
@@ -73,22 +74,22 @@ export function AppDialog({ project, onClose, onChanged }: {
     setPort(p.app?.port || 0)
     onChanged(p)
     await refresh()
-  }, { success: installed ? 'Saved - service restarted' : 'Saved', error: 'Could not save' })
+  }, { success: installed ? 'Gespeichert - Dienst neu gestartet' : 'Gespeichert', error: 'Speichern fehlgeschlagen' })
 
   const [install, installing] = useAction(async () => {
     await call('InstallAppService', project.name)
     await refresh()
-  }, { success: 'Service installed and started - it now starts with Windows', error: 'Could not install service' })
+  }, { success: 'Dienst installiert und gestartet - er startet jetzt mit Windows', error: 'Dienst konnte nicht installiert werden' })
 
   const [uninstall, uninstalling] = useAction(async () => {
     await call('UninstallAppService', project.name)
     await refresh()
-  }, { success: 'Service removed', error: 'Could not remove service' })
+  }, { success: 'Dienst entfernt', error: 'Dienst konnte nicht entfernt werden' })
 
   const [control, controlling] = useAction(async (action: 'StartApp' | 'StopApp' | 'RestartApp') => {
     await call(action, project.name)
     await refresh()
-  }, { error: 'Service action failed' })
+  }, { error: 'Dienst-Aktion fehlgeschlagen' })
 
   const [deploy, deploying] = useAction(async () => {
     setOutput('')
@@ -97,14 +98,14 @@ export function AppDialog({ project, onClose, onChanged }: {
     } finally {
       await refresh()
     }
-  }, { success: 'Deployed', error: 'Deploy failed' })
+  }, { success: 'Deploy erledigt', error: 'Deploy fehlgeschlagen' })
 
   const running = status?.state === 'running'
   const stateColor = running ? (status?.listening ? 'bg-status-green' : 'bg-status-yellow') : status?.state === 'stopped' ? 'bg-status-red' : 'bg-text-dim'
   const stateText = !status ? '...'
-    : status.state === 'not-installed' ? 'No service yet - save, then install the service'
-    : running ? (status.listening ? `Running, answering on port ${port}` : `Running, but nothing answers on port ${port} yet - check the log`)
-    : status.state
+    : status.state === 'not-installed' ? 'Noch kein Dienst - speichern, dann den Dienst installieren'
+    : running ? (status.listening ? `Läuft, antwortet auf Port ${port}` : `Läuft, aber auf Port ${port} antwortet noch nichts - schau ins Log`)
+    : statusLabel(status.state)
   const busy = saving || installing || uninstalling || controlling || deploying
 
   return (
@@ -116,10 +117,10 @@ export function AppDialog({ project, onClose, onChanged }: {
           {status && <span className="ml-auto font-mono text-text-dim">{status.service}</span>}
         </div>
 
-        <Field label="Folder" hint="The app's working directory. The service may write here (uploads, SQLite, caches) - and nowhere else.">
+        <Field label="Ordner" hint="Das Arbeitsverzeichnis der App. Der Dienst darf hier schreiben (Uploads, SQLite, Caches) - und nirgends sonst.">
           <div className="flex gap-2">
             <input className={inputCls} value={cfg.folder} onChange={e => set({ folder: e.target.value })} />
-            <Button onClick={browse}>Browse...</Button>
+            <Button onClick={browse}>Durchsuchen…</Button>
           </div>
         </Field>
 
@@ -134,7 +135,7 @@ export function AppDialog({ project, onClose, onChanged }: {
 
         <div className="grid grid-cols-4 gap-3">
           <div className="col-span-3">
-            <Field label="Start command" hint={<>Runs in <span className="font-mono">cmd.exe</span> in the folder. The app must listen on 127.0.0.1 and the port from <span className="font-mono">%PORT%</span>.</>}>
+            <Field label="Startbefehl" hint={<>Läuft in <span className="font-mono">cmd.exe</span> im Ordner. Die App muss auf 127.0.0.1 und dem Port aus <span className="font-mono">%PORT%</span> lauschen.</>}>
               <input className={inputCls} value={cfg.command} onChange={e => set({ command: e.target.value })} placeholder="npm start" />
             </Field>
           </div>
@@ -143,26 +144,26 @@ export function AppDialog({ project, onClose, onChanged }: {
           </Field>
         </div>
 
-        <Field label="Build command (optional)" hint="Run by Deploy after git pull and before the restart, as your user.">
+        <Field label="Build-Befehl (optional)" hint="Wird beim Deploy nach git pull und vor dem Neustart ausgeführt, mit deinem Benutzer.">
           <input className={inputCls} value={cfg.build_command} onChange={e => set({ build_command: e.target.value })} placeholder="npm ci && npm run build" />
         </Field>
 
-        <Field label="Environment (optional)" hint="KEY=value per line. PORT, HOST, DB_* and MAIL_* come from the project's Database and Mail settings.">
+        <Field label="Umgebungsvariablen (optional)" hint="KEY=Wert pro Zeile. PORT, HOST, DB_* und MAIL_* kommen aus den Datenbank- und Mail-Einstellungen des Projekts.">
           <textarea className={`${inputCls} h-16 resize-y`} value={cfg.envText} onChange={e => set({ envText: e.target.value })} placeholder="NODE_ENV=production" />
         </Field>
 
         <div className="flex flex-wrap justify-between gap-2 pt-2 border-t border-border">
           <div className="flex gap-2">
             {installed && <>
-              <Button disabled={busy} onClick={() => control(running ? 'StopApp' : 'StartApp')}>{running ? 'Stop' : 'Start'}</Button>
-              <Button disabled={busy} onClick={() => control('RestartApp')} icon={<RefreshCw size={12} />}>Restart</Button>
-              <Button disabled={busy} busy={deploying} onClick={deploy} icon={<Download size={12} />} title="git pull (if a repository), build command, restart">Deploy</Button>
+              <Button disabled={busy} onClick={() => control(running ? 'StopApp' : 'StartApp')}>{running ? 'Stoppen' : 'Starten'}</Button>
+              <Button disabled={busy} onClick={() => control('RestartApp')} icon={<RefreshCw size={12} />}>Neu starten</Button>
+              <Button disabled={busy} busy={deploying} onClick={deploy} icon={<Download size={12} />} title="git pull (falls Repository), Build-Befehl, Neustart">Deploy</Button>
             </>}
           </div>
           <div className="flex gap-2">
-            <Button variant={saved ? 'secondary' : 'primary'} busy={saving} disabled={busy || !cfg.command || !cfg.port} onClick={save}>Save</Button>
+            <Button variant={saved ? 'secondary' : 'primary'} busy={saving} disabled={busy || !cfg.command || !cfg.port} onClick={save}>Speichern</Button>
             {saved && status?.state === 'not-installed' && (
-              <Button variant="primary" busy={installing} disabled={busy} onClick={install} title="Asks for administrator rights once">Install service</Button>
+              <Button variant="primary" busy={installing} disabled={busy} onClick={install} title="Fragt einmal nach Administratorrechten">Dienst installieren</Button>
             )}
           </div>
         </div>
@@ -175,7 +176,7 @@ export function AppDialog({ project, onClose, onChanged }: {
             {status && <span className="text-[11px] font-mono text-text-dim truncate ml-4" title={status.log_path}>{status.log_path}</span>}
           </div>
           <pre className="h-40 overflow-auto bg-bg-primary border border-border rounded-lg p-2 text-[11px] font-mono text-text-muted whitespace-pre-wrap select-text">
-            {log.length ? log.join('\n') : 'No output yet.'}
+            {log.length ? log.join('\n') : 'Noch keine Ausgabe.'}
           </pre>
         </div>
 
@@ -183,12 +184,12 @@ export function AppDialog({ project, onClose, onChanged }: {
           <div className="text-right">
             <Button variant="danger" disabled={busy} busy={uninstalling} onClick={async () => {
               if (await confirmDialog({
-                title: `Remove the service ${status?.service}?`,
-                message: 'The app stops and no longer starts with Windows. The project and its files stay. Windows asks for administrator rights.',
-                confirmLabel: 'Remove service',
+                title: `Dienst ${status?.service} entfernen?`,
+                message: 'Die App stoppt und startet nicht mehr mit Windows. Das Projekt und seine Dateien bleiben. Windows fragt nach Administratorrechten.',
+                confirmLabel: 'Dienst entfernen',
                 danger: true,
               })) uninstall()
-            }}>Remove service</Button>
+            }}>Dienst entfernen</Button>
           </div>
         )}
       </div>

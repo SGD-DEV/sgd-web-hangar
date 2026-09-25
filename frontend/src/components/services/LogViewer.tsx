@@ -51,7 +51,7 @@ export default function LogViewer({ serviceName }: LogViewerProps) {
               onChange={(e) => setAutoScroll(e.target.checked)}
               className="rounded border-border bg-bg-secondary"
             />
-            Auto-scroll
+            Automatisch scrollen
           </label>
         </div>
         <button
@@ -59,7 +59,7 @@ export default function LogViewer({ serviceName }: LogViewerProps) {
           className="flex items-center gap-1.5 px-2 py-1 text-xs text-text-dim hover:text-text-muted transition-colors"
         >
           <Trash2 size={10} />
-          Clear
+          Leeren
         </button>
       </div>
 
@@ -68,7 +68,7 @@ export default function LogViewer({ serviceName }: LogViewerProps) {
         className="flex-1 bg-bg-primary rounded-lg border border-border p-3 overflow-y-auto font-mono text-xs leading-5"
       >
         {logs.length === 0 ? (
-          <span className="text-text-dim">No logs available</span>
+          <span className="text-text-dim">Keine Logs vorhanden</span>
         ) : (
           logs.map((line, i) => (
             <div key={i} className="text-text-muted hover:text-text-primary transition-colors">

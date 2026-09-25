@@ -46,7 +46,7 @@ func (a *App) git(dir string, timeout time.Duration, args ...string) (string, er
 	services.HideWindow(cmd)
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
-		return string(out), fmt.Errorf("git %s timed out", args[0])
+		return string(out), fmt.Errorf("git %s hat zu lange gedauert", args[0])
 	}
 	if err != nil {
 		return string(out), fmt.Errorf("%s", gitErrorText(out, err))
@@ -78,7 +78,7 @@ func (a *App) gitProjectDir(name string) (string, error) {
 		return "", err
 	}
 	if p.Path == "" {
-		return "", fmt.Errorf("project %s has no folder", name)
+		return "", fmt.Errorf("Projekt %s hat keinen Ordner", name)
 	}
 	return p.Path, nil
 }
@@ -161,7 +161,7 @@ func (a *App) GitCommitPush(name, message string) (string, error) {
 	if st != "" {
 		message = strings.TrimSpace(message)
 		if message == "" {
-			return "", fmt.Errorf("a commit message is required")
+			return "", fmt.Errorf("eine Commit-Nachricht ist erforderlich")
 		}
 		if _, err := a.git(dir, time.Minute, "add", "-A"); err != nil {
 			return "", err
@@ -237,7 +237,7 @@ func (a *App) GitSetRemote(name, remoteURL string) error {
 func (a *App) SetGitIdentity(name, email string) error {
 	name, email = strings.TrimSpace(name), strings.TrimSpace(email)
 	if name == "" || !strings.Contains(email, "@") {
-		return fmt.Errorf("name and e-mail address are required")
+		return fmt.Errorf("Name und E-Mail-Adresse sind Pflichtfelder")
 	}
 	if _, err := a.git("", 5*time.Second, "config", "--global", "user.name", name); err != nil {
 		return err

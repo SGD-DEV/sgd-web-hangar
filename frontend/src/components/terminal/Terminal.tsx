@@ -71,7 +71,7 @@ export default function DevourTerminal() {
       try {
         await window.go?.app?.App?.SendTerminalInput?.(cmd)
       } catch (err: any) {
-        setLines(prev => [...prev, { type: 'stderr', text: 'Failed to send input: ' + (err?.message || String(err)) }])
+        setLines(prev => [...prev, { type: 'stderr', text: 'Eingabe konnte nicht gesendet werden: ' + (err?.message || String(err)) }])
       }
       return
     }
@@ -161,10 +161,10 @@ export default function DevourTerminal() {
               }
             }}
             className="flex items-center gap-1.5 px-2.5 py-1 bg-bg-secondary border border-border rounded text-xs text-text-muted hover:text-text-primary hover:border-text-dim transition-colors"
-            title="Opens Windows Terminal (or cmd.exe) with PHP/MySQL/psql/composer on PATH. Use this for interactive REPLs like psql or mysql shell."
+            title="Öffnet Windows Terminal (oder cmd.exe) mit PHP/MySQL/psql/composer im PATH. Für interaktive Programme wie psql oder die mysql-Shell."
           >
             <ExternalLink size={11} />
-            Open in Windows Terminal
+            In Windows Terminal öffnen
           </button>
         </div>
       </div>
@@ -179,14 +179,14 @@ export default function DevourTerminal() {
         {lines.length === 0 && !running && (
           <div className="text-text-dim mb-4">
             <p className="text-accent mb-1">Hangar Terminal v1.0</p>
-            <p>PHP, MySQL, Composer, Node and other tools are automatically available.</p>
-            <p>Type <span className="text-text-primary">php -v</span>, <span className="text-text-primary">mysql --version</span>, or any command.</p>
-            <p>Type <span className="text-text-primary">clear</span> to reset. Press <span className="text-text-primary">Ctrl+C</span> to cancel.</p>
+            <p>PHP, MySQL, Composer, Node und weitere Tools stehen automatisch zur Verfügung.</p>
+            <p>Gib <span className="text-text-primary">php -v</span>, <span className="text-text-primary">mysql --version</span> oder einen anderen Befehl ein.</p>
+            <p><span className="text-text-primary">clear</span> leert die Ausgabe, <span className="text-text-primary">Strg+C</span> bricht ab.</p>
             <p className="mt-2 text-text-muted">
-              Interactive REPLs (<span className="text-text-primary">psql</span>, <span className="text-text-primary">mysql</span> shell, <span className="text-text-primary">php artisan tinker</span>, <span className="text-text-primary">npx create-react-app</span>):
-              click <span className="text-text-primary">Open in Windows Terminal</span> at the top right.
-              This in-app terminal is for non-interactive commands only - REPLs hang
-              forever waiting for a TTY we can't give them.
+              Interaktive Programme (<span className="text-text-primary">psql</span>, <span className="text-text-primary">mysql</span> shell, <span className="text-text-primary">php artisan tinker</span>, <span className="text-text-primary">npx create-react-app</span>):
+              klicke oben rechts auf <span className="text-text-primary">In Windows Terminal öffnen</span>.
+              Dieses eingebaute Terminal ist nur für nicht-interaktive Befehle - interaktive Programme
+              warten hier endlos auf eine Eingabe, die wir ihnen nicht geben können.
             </p>
           </div>
         )}
@@ -213,7 +213,7 @@ export default function DevourTerminal() {
         })}
 
         {running && (
-          <div className="text-text-dim animate-pulse mt-1">Running...</div>
+          <div className="text-text-dim animate-pulse mt-1">Läuft…</div>
         )}
       </div>
 
@@ -230,7 +230,7 @@ export default function DevourTerminal() {
           autoFocus
           spellCheck={false}
           className="flex-1 bg-transparent font-mono text-xs text-text-primary placeholder-text-dim focus:outline-none"
-          placeholder={running ? "Type input or Ctrl+C to cancel..." : "Enter command..."}
+          placeholder={running ? "Eingabe tippen oder Strg+C zum Abbrechen…" : "Befehl eingeben…"}
         />
       </form>
     </div>

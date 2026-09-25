@@ -147,21 +147,21 @@ export default function PHPVersionList({ onNavigate }: PHPVersionListProps) {
       {/* Left: Version list */}
       <div className="w-72 border-r border-border flex-shrink-0 overflow-y-auto p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xs font-medium text-text-muted uppercase tracking-wider">PHP Versions</h2>
+          <h2 className="text-xs font-medium text-text-muted uppercase tracking-wider">PHP-Versionen</h2>
           <button
             onClick={() => onNavigate?.('packages')}
             className="p-1 text-text-dim hover:text-text-primary transition-colors"
-            title="Install new version"
+            title="Neue Version installieren"
           >
             <Download size={14} />
           </button>
         </div>
 
         {loading ? (
-          <div className="text-text-dim text-sm">Loading...</div>
+          <div className="text-text-dim text-sm">Lädt…</div>
         ) : versions.length === 0 ? (
           <div className="text-text-dim text-xs text-center py-4">
-            No PHP versions installed
+            Keine PHP-Versionen installiert
           </div>
         ) : (
           <div className="space-y-1">
@@ -186,7 +186,7 @@ export default function PHPVersionList({ onNavigate }: PHPVersionListProps) {
                       onClick={(e) => { e.stopPropagation(); handleSwitch(v.version) }}
                       className="text-xs text-text-dim hover:text-accent transition-colors mt-0.5"
                     >
-                      Activate
+                      Aktivieren
                     </button>
                   )}
                 </div>
@@ -206,7 +206,7 @@ export default function PHPVersionList({ onNavigate }: PHPVersionListProps) {
                 onClick={() => setActiveTab('extensions')}
                 className={`pb-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'extensions' ? 'border-accent text-text-primary' : 'border-transparent text-text-muted hover:text-text-primary'}`}
               >
-                <span className="flex items-center gap-1.5"><Package size={13} /> Extensions</span>
+                <span className="flex items-center gap-1.5"><Package size={13} /> Erweiterungen</span>
               </button>
               <button
                 onClick={() => { setActiveTab('ini'); loadIni(selectedVersion) }}
@@ -227,15 +227,15 @@ export default function PHPVersionList({ onNavigate }: PHPVersionListProps) {
                     type="text"
                     value={extFilter}
                     onChange={e => setExtFilter(e.target.value)}
-                    placeholder="Filter..."
+                    placeholder="Filtern…"
                     className="px-3 py-1.5 w-48 bg-bg-secondary border border-border rounded-lg text-xs text-text-primary placeholder-text-dim focus:outline-none focus:border-accent/50 font-mono"
                   />
                 </div>
 
                 {extLoading ? (
-                  <div className="text-text-dim text-sm">Loading extensions...</div>
+                  <div className="text-text-dim text-sm">Erweiterungen werden geladen…</div>
                 ) : filteredExts.length === 0 ? (
-                  <div className="text-text-dim text-xs text-center py-8">No extensions found</div>
+                  <div className="text-text-dim text-xs text-center py-8">Keine Erweiterungen gefunden</div>
                 ) : (
                   <div className="grid grid-cols-2 gap-1.5">
                     {filteredExts.map(ext => (
@@ -271,7 +271,7 @@ export default function PHPVersionList({ onNavigate }: PHPVersionListProps) {
                     <button
                       onClick={() => { setIniSearchVisible(!iniSearchVisible); setTimeout(() => iniSearchRef.current?.focus(), 50) }}
                       className="p-1.5 text-text-dim hover:text-text-primary transition-colors rounded hover:bg-bg-secondary"
-                      title="Search (Ctrl+F)"
+                      title="Suchen (Strg+F)"
                     >
                       <Search size={14} />
                     </button>
@@ -280,7 +280,7 @@ export default function PHPVersionList({ onNavigate }: PHPVersionListProps) {
                       disabled={iniSaving}
                       className="px-3 py-1.5 bg-accent text-on-accent rounded-lg text-xs font-medium hover:bg-accent-hover transition-colors disabled:opacity-40"
                     >
-                      {iniSaving ? 'Saving...' : iniSaved ? 'Saved!' : 'Save'}
+                      {iniSaving ? 'Speichert…' : iniSaved ? 'Gespeichert!' : 'Speichern'}
                     </button>
                   </div>
                 </div>
@@ -292,7 +292,7 @@ export default function PHPVersionList({ onNavigate }: PHPVersionListProps) {
                       type="text"
                       value={iniSearch}
                       onChange={e => setIniSearch(e.target.value)}
-                      placeholder="Search php.ini..."
+                      placeholder="php.ini durchsuchen…"
                       className="flex-1 bg-transparent text-xs text-text-primary placeholder-text-dim focus:outline-none font-mono"
                     />
                     {iniSearch && (
@@ -315,7 +315,7 @@ export default function PHPVersionList({ onNavigate }: PHPVersionListProps) {
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-text-dim text-sm">
-            Select a PHP version to manage extensions
+            Wähle eine PHP-Version, um ihre Erweiterungen zu verwalten
           </div>
         )}
       </div>

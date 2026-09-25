@@ -26,7 +26,7 @@ func paramsKey(service string) string {
 func WriteNSSMParams(service string, p NSSMParams) error {
 	k, err := registry.OpenKey(registry.LOCAL_MACHINE, paramsKey(service), registry.SET_VALUE)
 	if err != nil {
-		return fmt.Errorf("opening the settings of %s: %w (install the service again)", service, err)
+		return fmt.Errorf("Einstellungen von %s konnten nicht geöffnet werden: %w (Dienst neu installieren)", service, err)
 	}
 	defer k.Close()
 	for name, v := range map[string]string{"Application": p.Application, "AppParameters": p.Parameters, "AppDirectory": p.Directory} {

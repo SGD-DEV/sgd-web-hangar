@@ -44,6 +44,7 @@ function App() {
   const [services, setServices] = useState<Record<string, ServiceStatus>>({})
   const [showWizard, setShowWizard] = useState<boolean>(false)
   const [firstRunChecked, setFirstRunChecked] = useState<boolean>(false)
+  const appName = useAppearance(s => s.settings?.app_name) || 'Hangar'
 
   // First-run check: ask the backend whether any runtimes are installed yet.
   // If not, show the welcome wizard before the rest of the UI is reachable.
@@ -99,7 +100,7 @@ function App() {
             <div className="w-80 border-r border-border flex-shrink-0 overflow-y-auto">
               <div className="p-4">
                 <WebServerSwitch statuses={services} />
-                <h2 className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">Services</h2>
+                <h2 className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">Dienste</h2>
                 <div className="space-y-1">
                   {serviceList.map(name => (
                     <ServiceCard
@@ -121,6 +122,7 @@ function App() {
                   tabs={['overview', 'config', 'logs']}
                   activeTab={activeTab}
                   onTabChange={(tab) => setActiveTab(tab as DetailTab)}
+                  labels={{ overview: 'Übersicht', config: 'Konfiguration', logs: 'Logs' }}
                 />
               </div>
               <div className="flex-1 overflow-y-auto p-6">
@@ -187,7 +189,7 @@ function App() {
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
         <div className="flex items-center gap-2">
-          <span className="text-accent font-medium text-sm tracking-tight">▪ HANGAR</span>
+          <span className="text-accent font-medium text-sm tracking-tight">▪ {appName.toUpperCase()}</span>
         </div>
         <div
           className="flex items-center gap-1"

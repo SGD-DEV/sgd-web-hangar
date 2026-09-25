@@ -46,7 +46,7 @@ export default function TunnelPage() {
   const [origin, setOrigin] = useState('http://127.0.0.1:80')
 
   const loadInfo = useCallback(async () => {
-    try { setInfo(await call<Info>('GetTunnelInfo')) } catch (e) { toast.error('Tunnel status', errorMessage(e)) }
+    try { setInfo(await call<Info>('GetTunnelInfo')) } catch (e) { toast.error('Tunnel-Status', errorMessage(e)) }
   }, [])
 
   const loadConfig = useCallback(async () => {
@@ -55,7 +55,7 @@ export default function TunnelPage() {
       setCfg({ ...c, ingress: (c.ingress || []).filter(r => r.hostname || r.path) })
       setDirty(false)
     } catch (e) {
-      toast.error('Could not read config.yml', errorMessage(e))
+      toast.error('config.yml konnte nicht gelesen werden', errorMessage(e))
     }
   }, [])
 
@@ -71,7 +71,7 @@ export default function TunnelPage() {
     if (!cfg) return
     await call('SaveTunnelConfig', cfg)
     await loadConfig()
-  }, { success: 'config.yml saved - restart the tunnel to apply it', error: 'Could not save config' })
+  }, { success: 'config.yml gespeichert - Tunnel neu starten, damit sie gilt', error: 'Konfiguration konnte nicht gespeichert werden' })
 
   const [saveAndRestart, savingRestart] = useAction(async () => {
     if (!cfg) return
@@ -79,14 +79,14 @@ export default function TunnelPage() {
     await call('RestartTunnel')
     await loadConfig()
     await loadInfo()
-  }, { success: 'Tunnel restarted with the new configuration', error: 'Could not apply configuration' })
+  }, { success: 'Tunnel mit der neuen Konfiguration neu gestartet', error: 'Konfiguration konnte nicht übernommen werden' })
 
   const [sync, syncing] = useAction(async () => {
     const c = await call<TunnelConfig>('SyncTunnelFromProjects')
     setCfg({ ...c, ingress: (c.ingress || []).filter(r => r.hostname || r.path) })
     setDirty(true)
     return c.ingress?.length || 0
-  }, { success: 'Rules updated from project domains - review and save', error: 'Sync failed' })
+  }, { success: 'Routen aus den Projekt-Domains übernommen - prüfen und speichern', error: 'Sync fehlgeschlagen' })
 
   const setupNeeded = info && (!info.config_exists || !cfg?.tunnel)
 
@@ -96,10 +96,10 @@ export default function TunnelPage() {
         <div>
           <h2 className="text-lg font-medium flex items-center gap-2"><Cloud size={16} /> Cloudflare Tunnel</h2>
           <p className="text-xs text-text-muted mt-1">
-            Publish sites on your own domains without opening router ports. Visitors connect to Cloudflare, which forwards through the tunnel to this machine.
+            Seiten unter eigenen Domains veröffentlichen, ohne Ports am Router zu öffnen. Besucher verbinden sich mit Cloudflare, das die Anfragen durch den Tunnel an diesen Rechner weiterleitet.
           </p>
         </div>
-        <Button onClick={() => { loadInfo(); loadConfig() }} icon={<RefreshCw size={12} />}>Refresh</Button>
+        <Button onClick={() => { loadInfo(); loadConfig() }} icon={<RefreshCw size={12} />}>Aktualisieren</Button>
       </div>
 
       {info && <StatusCard info={info} cfg={cfg} onChanged={() => { loadInfo(); loadConfig() }} />}
@@ -109,7 +109,7 @@ export default function TunnelPage() {
       {cfg && !setupNeeded && (
         <>
           <div className="flex items-center gap-1 border-b border-border mt-6 mb-4">
-            {([['rules', 'Routes', List], ['yaml', 'config.yml', FileCode], ['log', 'Log', ScrollText]] as const).map(([id, label, Icon]) => (
+            {([['rules', 'Routen', List], ['yaml', 'config.yml', FileCode], ['log', 'Log', ScrollText]] as const).map(([id, label, Icon]) => (
               <button key={id} onClick={() => setTab(id)}
                 className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium -mb-px border-b-2 transition-colors ${tab === id ? 'border-accent text-text-primary' : 'border-transparent text-text-muted hover:text-text-primary'}`}>
                 <Icon size={12} /> {label}
@@ -125,13 +125,13 @@ export default function TunnelPage() {
               onChange={c => { setCfg(c); setDirty(true) }}
               actions={
                 <>
-                  <Button onClick={sync} busy={syncing} icon={<Wand2 size={12} />} title="Add a route for every public domain of your projects and drop routes whose project is gone">
-                    Sync from projects
+                  <Button onClick={sync} busy={syncing} icon={<Wand2 size={12} />} title="Für jede öffentliche Domain deiner Projekte eine Route anlegen und Routen gelöschter Projekte entfernen">
+                    Aus Projekten übernehmen
                   </Button>
-                  <Button onClick={save} busy={saving} disabled={!dirty} icon={<Save size={12} />}>Save</Button>
+                  <Button onClick={save} busy={saving} disabled={!dirty} icon={<Save size={12} />}>Speichern</Button>
                   <Button variant="primary" onClick={saveAndRestart} busy={savingRestart}
                     disabled={info?.service_state === 'not-installed'} icon={<RotateCcw size={12} />}>
-                    {dirty ? 'Save & apply' : 'Restart tunnel'}
+                    {dirty ? 'Speichern & übernehmen' : 'Tunnel neu starten'}
                   </Button>
                 </>
               }
@@ -148,16 +148,16 @@ export default function TunnelPage() {
 function StatusCard({ info, cfg, onChanged }: { info: Info; cfg: TunnelConfig | null; onChanged: () => void }) {
   const state = info.service_state
   const [install, installing] = useAction(async () => { await call('InstallTunnelService'); onChanged() },
-    { success: 'Tunnel service installed and started', error: 'Service installation failed' })
+    { success: 'Tunnel-Dienst installiert und gestartet', error: 'Dienst-Installation fehlgeschlagen' })
   const [restart, restarting] = useAction(async () => { await call('RestartTunnel'); onChanged() },
-    { success: 'Tunnel restarted', error: 'Could not restart tunnel' })
+    { success: 'Tunnel neu gestartet', error: 'Tunnel konnte nicht neu gestartet werden' })
   const [stop, stopping] = useAction(async () => { await call('StopTunnel'); onChanged() },
-    { success: 'Tunnel stopped - published sites are offline', error: 'Could not stop tunnel' })
+    { success: 'Tunnel gestoppt - veröffentlichte Seiten sind offline', error: 'Tunnel konnte nicht gestoppt werden' })
 
   const dot = state === 'running' ? 'ok' : state === 'starting' || state === 'stopping' ? 'busy' : state === 'not-installed' ? 'warn' : 'off'
   const label: Record<string, string> = {
-    running: 'Running', stopped: 'Stopped', starting: 'Starting...', stopping: 'Stopping...',
-    'not-installed': 'Service not installed', unknown: 'Unknown',
+    running: 'Läuft', stopped: 'Gestoppt', starting: 'Startet…', stopping: 'Stoppt…',
+    'not-installed': 'Dienst nicht installiert', unknown: 'Unbekannt',
   }
 
   return (
@@ -177,23 +177,23 @@ function StatusCard({ info, cfg, onChanged }: { info: Info; cfg: TunnelConfig | 
           <p className="text-xs font-mono">{info.version || (info.cloudflared_path ? '?' : 'not installed')}</p>
         </div>
         <div>
-          <p className="text-xs text-text-muted mb-1">Cloudflare account</p>
-          <p className="text-xs">{info.logged_in ? 'Logged in' : 'Not logged in'}</p>
+          <p className="text-xs text-text-muted mb-1">Cloudflare-Konto</p>
+          <p className="text-xs">{info.logged_in ? 'Angemeldet' : 'Nicht angemeldet'}</p>
         </div>
       </div>
       <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
         {state === 'not-installed' ? (
           <Button variant="primary" busy={installing} disabled={!cfg?.tunnel} onClick={install} icon={<Download size={12} />}
-            title="Registers cloudflared as a Windows service that starts with the computer (asks for administrator rights once)">
-            Install as Windows service
+            title="Registriert cloudflared als Windows-Dienst, der mit dem Rechner startet (fragt einmal nach Administratorrechten)">
+            Als Windows-Dienst installieren
           </Button>
         ) : (
           <>
             <Button variant="primary" busy={restarting} onClick={restart} icon={<RotateCcw size={12} />}>
-              {state === 'running' ? 'Restart' : 'Start'}
+              {state === 'running' ? 'Neu starten' : 'Starten'}
             </Button>
-            {state === 'running' && <Button variant="danger" busy={stopping} onClick={stop} icon={<Square size={12} />}>Stop</Button>}
-            <Button busy={installing} onClick={install} title="Reinstall the service (e.g. after moving the config)">Reinstall service</Button>
+            {state === 'running' && <Button variant="danger" busy={stopping} onClick={stop} icon={<Square size={12} />}>Stoppen</Button>}
+            <Button busy={installing} onClick={install} title="Dienst neu installieren (z. B. nachdem die Konfiguration verschoben wurde)">Dienst neu installieren</Button>
           </>
         )}
         <span className="text-[11px] text-text-dim font-mono ml-auto truncate" title={info.config_path}>{info.config_path}</span>
@@ -207,13 +207,13 @@ function SetupWizard({ info, onDone }: { info: Info; onDone: () => void }) {
   const [tunnels, setTunnels] = useState<TunnelEntry[] | null>(null)
 
   const [login, loggingIn] = useAction(async () => { await call('TunnelLogin'); onDone() },
-    { success: 'Logged in to Cloudflare', error: 'Login failed' })
+    { success: 'Bei Cloudflare angemeldet', error: 'Anmeldung fehlgeschlagen' })
   const [list, listing] = useAction(async () => setTunnels(await call<TunnelEntry[]>('ListTunnels') || []),
-    { error: 'Could not list tunnels' })
+    { error: 'Tunnel konnten nicht aufgelistet werden' })
   const [create, creating] = useAction(async () => { await call('CreateTunnel', name); onDone() },
-    { success: 'Tunnel created and written to config.yml', error: 'Could not create tunnel' })
+    { success: 'Tunnel angelegt und in config.yml eingetragen', error: 'Tunnel konnte nicht angelegt werden' })
   const [use, using] = useAction(async (id: string) => { await call('UseExistingTunnel', id); onDone() },
-    { success: 'Tunnel selected', error: 'Could not use tunnel' })
+    { success: 'Tunnel ausgewählt', error: 'Tunnel kann nicht verwendet werden' })
 
   const step = (n: number, done: boolean, title: string, body: React.ReactNode) => (
     <div className="flex gap-3">
@@ -229,44 +229,44 @@ function SetupWizard({ info, onDone }: { info: Info; onDone: () => void }) {
 
   return (
     <Card className="p-5 mt-6">
-      <h3 className="text-sm font-medium mb-4">Set up the tunnel</h3>
-      {step(1, !!info.cloudflared_path, 'Install cloudflared', info.cloudflared_path
+      <h3 className="text-sm font-medium mb-4">Tunnel einrichten</h3>
+      {step(1, !!info.cloudflared_path, 'cloudflared installieren', info.cloudflared_path
         ? <p className="text-xs text-text-dim font-mono">{info.cloudflared_path}</p>
-        : <p className="text-xs text-text-muted">Install <b>cloudflared</b> on the Packages page (Tools), then refresh.</p>)}
-      {step(2, info.logged_in, 'Log in to Cloudflare', info.logged_in
-        ? <p className="text-xs text-text-dim">Account certificate found.</p>
+        : <p className="text-xs text-text-muted">Installiere <b>cloudflared</b> auf der Seite Pakete (Tools) und aktualisiere dann.</p>)}
+      {step(2, info.logged_in, 'Bei Cloudflare anmelden', info.logged_in
+        ? <p className="text-xs text-text-dim">Konto-Zertifikat gefunden.</p>
         : <>
-          <p className="text-xs text-text-muted mb-2">Opens the browser. Log in and pick the domain (zone) you want to use. This page waits until you are done.</p>
+          <p className="text-xs text-text-muted mb-2">Öffnet den Browser. Melde dich an und wähle die Domain (Zone), die du nutzen willst. Diese Seite wartet, bis du fertig bist.</p>
           <Button variant="primary" busy={loggingIn} disabled={!info.cloudflared_path} onClick={login} icon={<LogIn size={12} />}>
-            {loggingIn ? 'Waiting for the browser...' : 'Log in with Cloudflare'}
+            {loggingIn ? 'Warte auf den Browser…' : 'Mit Cloudflare anmelden'}
           </Button>
         </>)}
-      {step(3, false, 'Create or pick a tunnel', <>
+      {step(3, false, 'Tunnel anlegen oder auswählen', <>
         <div className="flex items-end gap-2">
-          <Field label="New tunnel name">
+          <Field label="Name des neuen Tunnels">
             <input className={`${inputCls} w-56`} value={name} onChange={e => setName(e.target.value)} />
           </Field>
-          <Button variant="primary" busy={creating} disabled={!info.logged_in || !name} onClick={create} icon={<Plus size={12} />}>Create tunnel</Button>
-          <Button busy={listing} disabled={!info.logged_in} onClick={list}>Use existing...</Button>
+          <Button variant="primary" busy={creating} disabled={!info.logged_in || !name} onClick={create} icon={<Plus size={12} />}>Tunnel anlegen</Button>
+          <Button busy={listing} disabled={!info.logged_in} onClick={list}>Vorhandenen verwenden…</Button>
         </div>
         {tunnels && (
           <div className="mt-3 space-y-1">
-            {tunnels.length === 0 && <p className="text-xs text-text-dim">No tunnels in this account yet.</p>}
+            {tunnels.length === 0 && <p className="text-xs text-text-dim">In diesem Konto gibt es noch keine Tunnel.</p>}
             {tunnels.map(t => (
               <div key={t.id} className="flex items-center justify-between px-3 py-2 bg-bg-primary rounded border border-border">
                 <div>
                   <span className="text-sm">{t.name}</span>
                   <span className="text-[11px] text-text-dim font-mono ml-2">{t.id}</span>
-                  {t.connections > 0 && <span className="text-[11px] text-status-yellow ml-2">(connected elsewhere)</span>}
+                  {t.connections > 0 && <span className="text-[11px] text-status-yellow ml-2">(anderswo verbunden)</span>}
                 </div>
-                <Button size="xs" busy={using} onClick={() => use(t.id)}>Use</Button>
+                <Button size="xs" busy={using} onClick={() => use(t.id)}>Verwenden</Button>
               </div>
             ))}
-            <p className="text-[11px] text-text-dim">Using an existing tunnel needs its credentials file (&lt;id&gt;.json) in %USERPROFILE%\.cloudflared.</p>
+            <p className="text-[11px] text-text-dim">Für einen vorhandenen Tunnel wird seine Zugangsdatei (&lt;id&gt;.json) in %USERPROFILE%\.cloudflared benötigt.</p>
           </div>
         )}
       </>)}
-      {step(4, false, 'Install the Windows service', <p className="text-xs text-text-muted">After the tunnel exists, use "Install as Windows service" above. The tunnel then runs on boot, independent of Hangar.</p>)}
+      {step(4, false, 'Windows-Dienst installieren', <p className="text-xs text-text-muted">Sobald der Tunnel existiert, oben „Als Windows-Dienst installieren“ wählen. Der Tunnel läuft dann ab dem Hochfahren, unabhängig von Hangar.</p>)}
     </Card>
   )
 }
@@ -287,22 +287,22 @@ function RulesEditor({ cfg, origin, dirty, onChange, actions }: {
   const [routeDNS, routing] = useAction(async (host: string) => {
     const out = await call<string>('RouteTunnelDNS', host)
     return out
-  }, { success: out => out || 'DNS record created', error: 'Could not create DNS record' })
+  }, { success: out => out || 'DNS-Eintrag angelegt', error: 'DNS-Eintrag konnte nicht angelegt werden' })
 
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs text-text-muted">
-          Each route sends a public hostname to a local service. Project sites go to the web server (<span className="font-mono">{origin}</span>);
-          other apps can point at their own port, e.g. Filebrowser at <span className="font-mono">http://127.0.0.1:8081</span>.
-          Anything else gets a 404.
+          Jede Route leitet einen öffentlichen Hostnamen an einen lokalen Dienst. Projektseiten gehen an den Webserver (<span className="font-mono">{origin}</span>);
+          andere Apps können auf ihren eigenen Port zeigen, z. B. Filebrowser auf <span className="font-mono">http://127.0.0.1:8081</span>.
+          Alles andere bekommt einen 404.
         </p>
       </div>
       <Card>
         <div className="grid grid-cols-[1.4fr_1.4fr_auto_auto] gap-2 px-4 py-2 border-b border-border text-[11px] text-text-dim uppercase tracking-wider">
-          <span>Public hostname</span><span>Local service</span><span title="Skip certificate check (https origins with self-signed certs)">No TLS verify</span><span />
+          <span>Öffentlicher Hostname</span><span>Lokaler Dienst</span><span title="Zertifikatsprüfung überspringen (https-Ziele mit selbstsignierten Zertifikaten)">Ohne TLS-Prüfung</span><span />
         </div>
-        {rules.length === 0 && <p className="px-4 py-4 text-xs text-text-dim">No routes yet. Add public domains to a project (Edit) and click "Sync from projects", or add a route by hand.</p>}
+        {rules.length === 0 && <p className="px-4 py-4 text-xs text-text-dim">Noch keine Routen. Trage bei einem Projekt öffentliche Domains ein (Bearbeiten) und klicke auf „Aus Projekten übernehmen“, oder lege eine Route von Hand an.</p>}
         {rules.map((r, i) => (
           <div key={i} className="grid grid-cols-[1.4fr_1.4fr_auto_auto] gap-2 px-4 py-2 items-center border-b border-border last:border-b-0">
             <div>
@@ -313,25 +313,25 @@ function RulesEditor({ cfg, origin, dirty, onChange, actions }: {
             <input type="checkbox" className="accent-accent justify-self-center" checked={r.no_tls_verify} onChange={e => update(i, { no_tls_verify: e.target.checked })} />
             <div className="flex items-center gap-1">
               <Button size="xs" busy={routing} disabled={!r.hostname || dirty} onClick={() => routeDNS(r.hostname)}
-                icon={<Globe size={11} />} title={dirty ? 'Save first' : 'Create/update the CNAME record in Cloudflare DNS for this hostname'}>
+                icon={<Globe size={11} />} title={dirty ? 'Erst speichern' : 'CNAME-Eintrag für diesen Hostnamen im Cloudflare-DNS anlegen/aktualisieren'}>
                 DNS
               </Button>
               {r.hostname && (
-                <button onClick={() => call('OpenURL', `https://${r.hostname}`).catch(e => toast.error('Open failed', errorMessage(e)))}
-                  className="p-1.5 text-text-dim hover:text-text-primary" title="Open public URL"><ExternalLink size={12} /></button>
+                <button onClick={() => call('OpenURL', `https://${r.hostname}`).catch(e => toast.error('Öffnen fehlgeschlagen', errorMessage(e)))}
+                  className="p-1.5 text-text-dim hover:text-text-primary" title="Öffentliche URL öffnen"><ExternalLink size={12} /></button>
               )}
-              <button onClick={() => remove(i)} className="p-1.5 text-text-dim hover:text-status-red" title="Remove route"><Trash2 size={12} /></button>
+              <button onClick={() => remove(i)} className="p-1.5 text-text-dim hover:text-status-red" title="Route entfernen"><Trash2 size={12} /></button>
             </div>
           </div>
         ))}
         <div className="px-4 py-2 border-t border-border flex items-center justify-between">
-          <Button size="xs" onClick={add} icon={<Plus size={11} />}>Add route</Button>
-          <span className="text-[11px] text-text-dim">Catch-all: <span className="font-mono">http_status:404</span> (added automatically)</span>
+          <Button size="xs" onClick={add} icon={<Plus size={11} />}>Route hinzufügen</Button>
+          <span className="text-[11px] text-text-dim">Auffangregel: <span className="font-mono">http_status:404</span> (wird automatisch ergänzt)</span>
         </div>
       </Card>
       <div className="flex items-center gap-2 mt-4">
         {actions}
-        {dirty && <span className="text-xs text-status-yellow ml-2">Unsaved changes</span>}
+        {dirty && <span className="text-xs text-status-yellow ml-2">Ungespeicherte Änderungen</span>}
       </div>
     </div>
   )
@@ -344,22 +344,22 @@ function YamlEditor({ onSaved }: { onSaved: () => void }) {
 
   useEffect(() => {
     call<string>('GetTunnelConfigRaw').then(r => { setRaw(r || ''); setLoaded(true) })
-      .catch(e => toast.error('Could not read config.yml', errorMessage(e)))
+      .catch(e => toast.error('config.yml konnte nicht gelesen werden', errorMessage(e)))
   }, [])
 
   const [validate, validating] = useAction(async () => {
     try {
       await call('ValidateTunnelConfig', raw)
-      setStatus({ ok: true, msg: 'Valid' })
+      setStatus({ ok: true, msg: 'Gültig' })
     } catch (e) {
       setStatus({ ok: false, msg: errorMessage(e) })
     }
   })
   const [save, saving] = useAction(async () => {
     await call('SaveTunnelConfigRaw', raw)
-    setStatus({ ok: true, msg: 'Saved (previous version kept as config.yml.bak)' })
+    setStatus({ ok: true, msg: 'Gespeichert (vorherige Version als config.yml.bak aufbewahrt)' })
     onSaved()
-  }, { success: 'config.yml saved - restart the tunnel to apply it', error: 'Not saved' })
+  }, { success: 'config.yml gespeichert - Tunnel neu starten, damit sie gilt', error: 'Nicht gespeichert' })
 
   if (!loaded) return null
   return (
@@ -371,13 +371,13 @@ function YamlEditor({ onSaved }: { onSaved: () => void }) {
         onChange={e => { setRaw(e.target.value); setStatus(null) }}
       />
       <div className="flex items-center gap-2 mt-3">
-        <Button onClick={validate} busy={validating} icon={<CheckCircle2 size={12} />}>Validate</Button>
-        <Button variant="primary" onClick={save} busy={saving} icon={<Save size={12} />}>Save</Button>
+        <Button onClick={validate} busy={validating} icon={<CheckCircle2 size={12} />}>Prüfen</Button>
+        <Button variant="primary" onClick={save} busy={saving} icon={<Save size={12} />}>Speichern</Button>
         {status && <span className={`text-xs whitespace-pre-wrap ${status.ok ? 'text-status-green' : 'text-status-red'}`}>{status.msg}</span>}
       </div>
       <p className="text-[11px] text-text-dim mt-2">
-        Saving validates the file with <span className="font-mono">cloudflared tunnel ingress validate</span> first. Reference:{' '}
-        <button className="text-accent hover:underline" onClick={() => call('OpenURL', 'https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/configure-tunnels/local-management/configuration-file/')}>configuration file docs</button>
+        Beim Speichern wird die Datei zuerst mit <span className="font-mono">cloudflared tunnel ingress validate</span> geprüft. Referenz:{' '}
+        <button className="text-accent hover:underline" onClick={() => call('OpenURL', 'https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/configure-tunnels/local-management/configuration-file/')}>Doku zur Konfigurationsdatei</button>
       </p>
     </div>
   )
@@ -396,7 +396,7 @@ function TunnelLog() {
   return (
     <Card className="p-3">
       <pre className="text-[11px] font-mono text-text-muted whitespace-pre-wrap max-h-[480px] overflow-y-auto select-text">
-        {lines.length ? lines.join('\n') : 'No log yet - the service writes here once it runs.'}
+        {lines.length ? lines.join('\n') : 'Noch kein Log - der Dienst schreibt hierher, sobald er läuft.'}
       </pre>
     </Card>
   )

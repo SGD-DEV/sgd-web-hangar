@@ -54,7 +54,7 @@ async function openURL(url: string) {
   try {
     await call('OpenURL', url)
   } catch (e) {
-    toast.error('Could not open browser', errorMessage(e))
+    toast.error('Browser konnte nicht geöffnet werden', errorMessage(e))
   }
 }
 
@@ -73,7 +73,7 @@ export default function ProjectList() {
       const p = await call<Project[]>('GetProjects')
       setProjects((p || []).sort((a, b) => a.name.localeCompare(b.name)))
     } catch (e) {
-      toast.error('Could not load projects', errorMessage(e))
+      toast.error('Projekte konnten nicht geladen werden', errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -90,32 +90,32 @@ export default function ProjectList() {
     const found = await call<Project[]>('ScanProjects')
     await loadProjects()
     return found?.length || 0
-  }, { success: n => n ? `${n} new project${n === 1 ? '' : 's'} found` : 'No new projects found', error: 'Scan failed' })
+  }, { success: n => n ? `${n} neue${n === 1 ? 's Projekt' : ' Projekte'} gefunden` : 'Keine neuen Projekte gefunden', error: 'Scan fehlgeschlagen' })
 
   const [toggleSSL] = useAction(async (p: Project) => {
     await call('UpdateProjectSettings', p.name, settingsOf(p, { ssl_enabled: !p.ssl_enabled }))
     await loadProjects()
     return !p.ssl_enabled
-  }, { success: on => on ? 'HTTPS enabled' : 'HTTPS disabled', error: 'Could not change HTTPS' })
+  }, { success: on => on ? 'HTTPS eingeschaltet' : 'HTTPS ausgeschaltet', error: 'HTTPS konnte nicht geändert werden' })
 
   const [changePHP] = useAction(async (p: Project, version: string) => {
     await call('UpdateProjectSettings', p.name, settingsOf(p, { php_version: version }))
     await loadProjects()
     return version
-  }, { success: v => `PHP ${v} is now used`, error: 'Could not switch PHP' })
+  }, { success: v => `Jetzt wird PHP ${v} verwendet`, error: 'PHP-Version konnte nicht gewechselt werden' })
 
   const [remove] = useAction(async (p: Project) => {
     await call('DeleteProject', p.name)
     await loadProjects()
-  }, { success: 'Project removed (files were kept)', error: 'Could not remove project' })
+  }, { success: 'Projekt entfernt (Dateien bleiben erhalten)', error: 'Projekt konnte nicht entfernt werden' })
 
-  const [openFolder] = useAction((p: Project) => call('OpenInExplorer', p.path), { error: 'Could not open folder' })
+  const [openFolder] = useAction((p: Project) => call('OpenInExplorer', p.path), { error: 'Ordner konnte nicht geöffnet werden' })
 
   async function confirmRemove(p: Project) {
     if (await confirmDialog({
-      title: `Remove project ${p.name}?`,
-      message: `The web server config and the hosts entry are removed.\nThe folder ${p.path} and the database are kept.`,
-      confirmLabel: 'Remove project',
+      title: `Projekt ${p.name} entfernen?`,
+      message: `Die Webserver-Konfiguration und der hosts-Eintrag werden entfernt.\nDer Ordner ${p.path} und die Datenbank bleiben erhalten.`,
+      confirmLabel: 'Projekt entfernen',
       danger: true,
     })) {
       remove(p)
@@ -135,18 +135,18 @@ export default function ProjectList() {
     <div className="flex-1 p-6 overflow-y-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-lg font-medium">Projects</h2>
+          <h2 className="text-lg font-medium">Projekte</h2>
           <p className="text-xs text-text-muted mt-1">
-            Sites served by <span className="text-text-primary capitalize">{webServer}</span> from{' '}
+            Seiten, die <span className="text-text-primary capitalize">{webServer}</span> ausliefert, aus{' '}
             <span className="font-mono text-text-primary">{projectsRoot || '...'}</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={scan} busy={scanning} icon={<Search size={12} />} title="Register folders in the projects root that aren't projects yet">
-            Scan
+          <Button onClick={scan} busy={scanning} icon={<Search size={12} />} title="Ordner im Projektordner registrieren, die noch keine Projekte sind">
+            Suchen
           </Button>
           <Button variant="primary" onClick={() => setShowCreate(true)} icon={<Plus size={12} />}>
-            New Project
+            Neues Projekt
           </Button>
         </div>
       </div>
@@ -158,7 +158,7 @@ export default function ProjectList() {
           onCreated={async (name, detail, openApp) => {
             setShowCreate(false)
             await loadProjects()
-            toast.success(`Project ${name} created`, detail || 'Use the pencil icon to add a public domain for the Cloudflare Tunnel.')
+            toast.success(`Projekt ${name} angelegt`, detail || 'Über das Stift-Symbol kannst du eine öffentliche Domain für den Cloudflare Tunnel hinzufügen.')
             if (openApp) {
               const all = await call<Project[]>('GetProjects')
               const me = all.find(x => x.name === name)
@@ -194,13 +194,13 @@ export default function ProjectList() {
       )}
 
       {loading ? (
-        <div className="text-text-dim text-sm flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Loading...</div>
+        <div className="text-text-dim text-sm flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Lädt…</div>
       ) : projects.length === 0 ? (
         <div className="bg-bg-secondary rounded-lg p-8 border border-border text-center">
           <FolderOpen size={32} className="mx-auto text-text-dim mb-3" />
-          <p className="text-text-muted text-sm">No projects yet</p>
+          <p className="text-text-muted text-sm">Noch keine Projekte</p>
           <p className="text-text-dim text-xs mt-2">
-            Create a new project or click Scan to pick up folders in <span className="font-mono text-accent">{projectsRoot || '...'}</span>
+            Lege ein neues Projekt an oder klicke auf Suchen, um vorhandene Ordner zu übernehmen aus <span className="font-mono text-accent">{projectsRoot || '...'}</span>
           </p>
         </div>
       ) : (
@@ -211,17 +211,17 @@ export default function ProjectList() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{p.name}</span>
-                    <span className={`text-xs capitalize ${frameworkBadge[p.framework] || 'text-text-dim'}`}>{p.framework}</span>
+                    <span className={`text-xs capitalize ${frameworkBadge[p.framework] || 'text-text-dim'}`}>{p.app ? 'App' : p.framework === 'unknown' ? 'unbekannt' : p.framework === 'php' ? 'PHP' : p.framework}</span>
                     {p.local_only && (
-                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-status-yellow/10 text-status-yellow" title="Only reachable from this machine">
-                        <ShieldCheck size={10} /> local only
+                      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-status-yellow/10 text-status-yellow" title="Nur von diesem Rechner erreichbar">
+                        <ShieldCheck size={10} /> nur lokal
                       </span>
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
-                    <UrlLink url={localURL(p)} icon={<Home size={11} />} title="Local address (this machine only)" />
+                    <UrlLink url={localURL(p)} icon={<Home size={11} />} title="Lokale Adresse (nur dieser Rechner)" />
                     {(p.aliases || []).map(a => (
-                      <UrlLink key={a} url={`https://${a}`} icon={<Globe size={11} />} title="Public address via Cloudflare Tunnel" />
+                      <UrlLink key={a} url={`https://${a}`} icon={<Globe size={11} />} title="Öffentliche Adresse über Cloudflare Tunnel" />
                     ))}
                   </div>
                   <div className="text-[11px] text-text-dim font-mono truncate mt-1" title={p.document_root}>
@@ -234,41 +234,41 @@ export default function ProjectList() {
                       value={p.php_version || ''}
                       onChange={e => changePHP(p, e.target.value)}
                       className="px-2 py-1 mr-1 bg-bg-primary border border-border rounded text-xs font-mono text-text-muted focus:outline-none focus:border-accent/50 cursor-pointer"
-                      title="PHP version for this project"
+                      title="PHP-Version für dieses Projekt"
                     >
                       {phpVersions.map(v => <option key={v.version} value={v.version}>PHP {v.version}</option>)}
                     </select>
                   )}
                   <IconButton
                     onClick={() => toggleSSL(p)}
-                    title={p.ssl_enabled ? 'Local HTTPS on (mkcert) - click to turn off' : 'Local HTTPS off - click to turn on'}
+                    title={p.ssl_enabled ? 'Lokales HTTPS an (mkcert) - klicken zum Ausschalten' : 'Lokales HTTPS aus - klicken zum Einschalten'}
                     className={p.ssl_enabled ? 'text-status-green' : ''}
                   >
                     {p.ssl_enabled ? <Lock size={13} /> : <Unlock size={13} />}
                   </IconButton>
                   {(p.framework === 'proxy' || p.framework === 'unknown') && (
                     <IconButton onClick={() => setTool({ kind: 'app', project: p })}
-                      title={p.app ? `App: ${p.app.command} (port ${p.app.port})` : 'Run as app (Node, Python, ...) - start command and service'}
+                      title={p.app ? `App: ${p.app.command} (Port ${p.app.port})` : 'Als App betreiben (Node, Python, …) - Startbefehl und Dienst'}
                       className={p.app ? 'text-accent' : ''}>
                       <Play size={13} />
                     </IconButton>
                   )}
                   <IconButton onClick={() => setTool({ kind: 'db', project: p })}
-                    title={p.database ? `Database: ${p.database.name} (${p.database.type})` : 'Database - create or assign one'}
+                    title={p.database ? `Datenbank: ${p.database.name} (${p.database.type})` : 'Datenbank - anlegen oder zuweisen'}
                     className={p.database ? 'text-status-green' : ''}>
                     <Database size={13} />
                   </IconButton>
                   <IconButton onClick={() => setTool({ kind: 'mail', project: p })}
-                    title={p.mail ? `Mail via ${p.mail.host}` : 'Mail - currently Mailpit (testing)'}
+                    title={p.mail ? `Mail über ${p.mail.host}` : 'Mail - derzeit Mailpit (Test)'}
                     className={p.mail ? 'text-status-green' : ''}>
                     <Mail size={13} />
                   </IconButton>
                   {p.framework !== 'proxy' && (
-                    <IconButton onClick={() => setTool({ kind: 'git', project: p })} title="Git - pull, commit & push"><GitBranch size={13} /></IconButton>
+                    <IconButton onClick={() => setTool({ kind: 'git', project: p })} title="Git - Pull, Commit & Push"><GitBranch size={13} /></IconButton>
                   )}
-                  <IconButton onClick={() => openFolder(p)} title="Open folder in Explorer"><FolderOpen size={13} /></IconButton>
-                  <IconButton onClick={() => setEditing(p)} title="Edit project"><Pencil size={13} /></IconButton>
-                  <IconButton onClick={() => confirmRemove(p)} title="Remove project" className="hover:!text-status-red"><Trash2 size={13} /></IconButton>
+                  <IconButton onClick={() => openFolder(p)} title="Ordner im Explorer öffnen"><FolderOpen size={13} /></IconButton>
+                  <IconButton onClick={() => setEditing(p)} title="Projekt bearbeiten"><Pencil size={13} /></IconButton>
+                  <IconButton onClick={() => confirmRemove(p)} title="Projekt entfernen" className="hover:!text-status-red"><Trash2 size={13} /></IconButton>
                 </div>
               </div>
             </div>
@@ -291,13 +291,13 @@ function IconButton({ children, onClick, title, className = '' }: { children: Re
 function UrlLink({ url, icon, title }: { url: string; icon: React.ReactNode; title: string }) {
   return (
     <span className="inline-flex items-center gap-1 group">
-      <button onClick={() => openURL(url)} title={`${title} - open in browser`}
+      <button onClick={() => openURL(url)} title={`${title} - im Browser öffnen`}
         className="inline-flex items-center gap-1 text-xs font-mono text-accent hover:underline">
         {icon}{url.replace(/^https?:\/\//, '')}
       </button>
       <button
-        onClick={() => navigator.clipboard.writeText(url).then(() => toast.info('URL copied', url)).catch(() => {})}
-        className="opacity-0 group-hover:opacity-100 text-text-dim hover:text-text-primary" title="Copy URL">
+        onClick={() => navigator.clipboard.writeText(url).then(() => toast.info('URL kopiert', url)).catch(() => {})}
+        className="opacity-0 group-hover:opacity-100 text-text-dim hover:text-text-primary" title="URL kopieren">
         <Copy size={10} />
       </button>
     </span>
@@ -341,9 +341,9 @@ function EditProject({ project, phpVersions, onClose, onSaved }: {
     return added
   }, {
     success: added => added.length
-      ? `Saved - ${added.join(', ')} added. Open the Tunnel page and click "Sync from projects" to publish it.`
-      : 'Project saved',
-    error: 'Could not save project',
+      ? `Gespeichert - ${added.join(', ')} hinzugefügt. Zum Veröffentlichen auf der Seite Tunnel „Sync from projects“ klicken.`
+      : 'Projekt gespeichert',
+    error: 'Projekt konnte nicht gespeichert werden',
   })
 
   async function browse(field: 'path' | 'document_root') {
@@ -354,15 +354,15 @@ function EditProject({ project, phpVersions, onClose, onSaved }: {
   }
 
   return (
-    <Modal title={`Edit ${project.name}`} onClose={onClose}>
+    <Modal title={`${project.name} bearbeiten`} onClose={onClose}>
       <div className="space-y-4">
-        <Field label="Local domain" hint="Reachable on this machine only (hosts file). Must end in a name the hosts file can resolve, e.g. .test">
+        <Field label="Lokale Domain" hint="Nur auf diesem Rechner erreichbar (hosts-Datei), z. B. name.test oder name.local">
           <input className={inputCls} value={form.domain} onChange={e => set({ domain: e.target.value })} />
         </Field>
 
         <Field
-          label="Public domains"
-          hint={<>One per line, e.g. <span className="font-mono">blog.example.com</span>. The site answers to these names; publish them on the Tunnel page (Sync from projects, then Create DNS).</>}
+          label="Öffentliche Domains"
+          hint={<>Eine pro Zeile, z. B. <span className="font-mono">blog.example.com</span>. Die Seite antwortet auf diese Namen; veröffentlicht werden sie auf der Seite Tunnel (Sync from projects, dann Create DNS).</>}
         >
           <textarea
             className={`${inputCls} h-20 resize-y`}
@@ -373,25 +373,25 @@ function EditProject({ project, phpVersions, onClose, onSaved }: {
         </Field>
 
         {isProxy ? (
-          <Field label="Proxy target" hint="The app this site forwards to, e.g. http://127.0.0.1:3000">
+          <Field label="Proxy-Ziel" hint="Die App, an die diese Seite weiterleitet, z. B. http://127.0.0.1:3000">
             <input className={inputCls} value={form.proxy_target} onChange={e => set({ proxy_target: e.target.value })} />
           </Field>
         ) : (
           <>
-            <Field label="Project folder">
+            <Field label="Projektordner">
               <div className="flex gap-2">
                 <input className={inputCls} value={form.path} onChange={e => set({ path: e.target.value })} />
-                <Button onClick={() => browse('path')}>Browse...</Button>
+                <Button onClick={() => browse('path')}>Durchsuchen…</Button>
               </div>
             </Field>
-            <Field label="Document root" hint="The folder the web server serves, e.g. the public/ folder of a Laravel app.">
+            <Field label="Document Root" hint="Der Ordner, den der Webserver ausliefert, z. B. public/ bei Laravel.">
               <div className="flex gap-2">
                 <input className={inputCls} value={form.document_root} onChange={e => set({ document_root: e.target.value })} />
-                <Button onClick={() => browse('document_root')}>Browse...</Button>
+                <Button onClick={() => browse('document_root')}>Durchsuchen…</Button>
               </div>
             </Field>
             {phpVersions.length > 0 && (
-              <Field label="PHP version">
+              <Field label="PHP-Version">
                 <select className={inputCls} value={form.php_version} onChange={e => set({ php_version: e.target.value })}>
                   {phpVersions.map(v => <option key={v.version} value={v.version}>PHP {v.version}</option>)}
                 </select>
@@ -403,19 +403,19 @@ function EditProject({ project, phpVersions, onClose, onSaved }: {
         <div className="space-y-2 pt-1">
           <label className="flex items-center gap-2 text-sm text-text-muted cursor-pointer">
             <input type="checkbox" className="accent-accent" checked={form.ssl_enabled} onChange={e => set({ ssl_enabled: e.target.checked })} />
-            Local HTTPS with a mkcert certificate
-            <span className="text-[11px] text-text-dim">(not needed for the tunnel - Cloudflare serves HTTPS)</span>
+            Lokales HTTPS mit mkcert-Zertifikat
+            <span className="text-[11px] text-text-dim">(für den Tunnel nicht nötig - Cloudflare liefert HTTPS)</span>
           </label>
           <label className="flex items-center gap-2 text-sm text-text-muted cursor-pointer">
             <input type="checkbox" className="accent-accent" checked={form.local_only} onChange={e => set({ local_only: e.target.checked })} />
-            Only reachable from this machine
+            Nur von diesem Rechner erreichbar
           </label>
         </div>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-border">
-          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={onClose}>Abbrechen</Button>
           <Button variant="primary" busy={saving} onClick={async () => { if (await save() !== undefined) onSaved() }}>
-            Save
+            Speichern
           </Button>
         </div>
       </div>
@@ -426,13 +426,13 @@ function EditProject({ project, phpVersions, onClose, onSaved }: {
 // --- Create -------------------------------------------------------------------
 
 const frameworks = [
-  { value: 'plain', label: 'Plain PHP', placeholder: '', description: 'Empty folder, no scaffolding' },
+  { value: 'plain', label: 'PHP (leer)', placeholder: '', description: 'Leerer Ordner mit Startseite' },
   { value: 'laravel', label: 'Laravel', placeholder: '11.*', description: 'composer create-project laravel/laravel' },
   { value: 'symfony', label: 'Symfony', placeholder: '7.*', description: 'composer create-project symfony/skeleton' },
-  { value: 'wordpress', label: 'WordPress', placeholder: '', description: 'latest German version, database included' },
-  { value: 'clone', label: 'Clone from Git', placeholder: '', description: 'https URL of a GitHub / GitLab / Gitea repository' },
-  { value: 'app', label: 'Node / Python app', placeholder: '', description: 'Hangar runs it as a Windows service' },
-  { value: 'proxy', label: 'Proxy', placeholder: '', description: 'Forward to an app already running elsewhere' },
+  { value: 'wordpress', label: 'WordPress', placeholder: '', description: 'aktuelle deutsche Version, inklusive Datenbank' },
+  { value: 'clone', label: 'Aus Git klonen', placeholder: '', description: 'https-Adresse eines GitHub- / GitLab- / Gitea-Repos' },
+  { value: 'app', label: 'Node- / Python-App', placeholder: '', description: 'Hangar betreibt sie als Windows-Dienst' },
+  { value: 'proxy', label: 'Proxy', placeholder: '', description: 'Weiterleitung an eine App, die anderswo läuft' },
 ]
 
 function CreateProject({ projectsRoot, onClose, onCreated }: {
@@ -465,11 +465,11 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
           framework: 'proxy',
           proxy_target: `http://127.0.0.1:${port}`,
         })
-        detail = 'Now set the start command and install the service.'
+        detail = 'Jetzt den Startbefehl eintragen und den Dienst installieren.'
         openApp = true
       } else if (p.framework === 'clone') {
         await call('CloneProject', { url: p.gitUrl.trim(), name, path: p.path.trim() })
-        detail = 'Cloned. Run composer install / npm install in the terminal if the project needs it.'
+        detail = 'Geklont. Falls nötig, im Terminal composer install / npm install ausführen.'
       } else if (p.framework === 'proxy' || p.framework === 'plain') {
         await call('CreateProjectWithOptions', {
           name,
@@ -504,20 +504,20 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
   return (
     <div className="mb-6 bg-bg-secondary rounded-lg p-4 border border-accent/20">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium">Create Project</h3>
+        <h3 className="text-sm font-medium">Projekt anlegen</h3>
         <button onClick={onClose} className="text-text-dim hover:text-text-primary"><X size={14} /></button>
       </div>
       <div className="space-y-3">
-        <Field label="Project name" hint={name && !nameValid
-          ? <span className="text-status-red">Lowercase letters, digits and - only. Put a domain like blog.local into the field below.</span>
-          : 'Used for the folder and the database name.'}>
+        <Field label="Projektname" hint={name && !nameValid
+          ? <span className="text-status-red">Nur Kleinbuchstaben, Ziffern und -. Eine Domain wie blog.local gehört ins Feld darunter.</span>
+          : 'Wird für den Ordner und den Datenbanknamen verwendet.'}>
           <input className={inputCls} value={p.name} onChange={e => { setNameTouched(true); set({ name: e.target.value.toLowerCase() }) }} placeholder="my-site" disabled={creating} autoFocus />
         </Field>
-        <Field label="Local domain (optional)" hint={<>Reachable on this machine via the hosts file. Default: <span className="font-mono">{(nameValid ? name : 'my-site') + '.test'}</span></>}>
+        <Field label="Lokale Domain (optional)" hint={<>Auf diesem Rechner über die hosts-Datei erreichbar. Standard: <span className="font-mono">{(nameValid ? name : 'my-site') + '.test'}</span></>}>
           <input className={inputCls} value={p.domain} onChange={e => set({ domain: e.target.value })} placeholder={`${nameValid ? name : 'my-site'}.test`} disabled={creating} />
         </Field>
         {p.framework === 'clone' && (
-          <Field label="Repository URL" hint="https only. For private repositories Git opens a login window (Git Credential Manager) and remembers it.">
+          <Field label="Repository-URL" hint="Nur https. Bei privaten Repos öffnet Git ein Login-Fenster (Git Credential Manager) und merkt sich die Anmeldung.">
             <input className={inputCls} value={p.gitUrl} disabled={creating} placeholder="https://github.com/user/repo.git"
               onChange={e => {
                 const gitUrl = e.target.value
@@ -527,16 +527,16 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
           </Field>
         )}
         {p.framework !== 'proxy' && p.framework !== 'wordpress' && (
-          <Field label="Folder" hint={p.path ? undefined : <>Leave empty to use <span className="font-mono">{projectsRoot}\{name || 'my-site'}</span></>}>
+          <Field label="Ordner" hint={p.path ? undefined : <>Leer lassen für <span className="font-mono">{projectsRoot}\{name || 'my-site'}</span></>}>
             <div className="flex gap-2">
               <input className={inputCls} value={p.path} onChange={e => set({ path: e.target.value })} disabled={creating} placeholder={`${projectsRoot}\\${name || 'my-site'}`} />
               <Button disabled={creating} onClick={async () => {
                 try { const dir = await call<string>('PickProjectDirectory'); if (dir) set({ path: dir }) } catch { /* cancelled */ }
-              }}>Browse...</Button>
+              }}>Durchsuchen…</Button>
             </div>
           </Field>
         )}
-        <Field label="Type">
+        <Field label="Typ">
           <select className={inputCls} value={p.framework} onChange={e => set({ framework: e.target.value, version: '' })} disabled={creating}>
             {frameworks.map(f => <option key={f.value} value={f.value}>{f.label} - {f.description}</option>)}
           </select>
@@ -548,21 +548,21 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
           </Field>
         )}
         {p.framework === 'laravel' && (
-          <Field label="Document root">
+          <Field label="Document Root">
             <select className={inputCls} value={p.laravelDocRoot} onChange={e => set({ laravelDocRoot: e.target.value })} disabled={creating}>
-              <option value="public">/public (Laravel default)</option>
-              <option value="root">Project root</option>
+              <option value="public">/public (Laravel-Standard)</option>
+              <option value="root">Projektordner</option>
             </select>
           </Field>
         )}
         {p.framework === 'proxy' && (
-          <Field label="Proxy target" hint="The address of the app, e.g. http://127.0.0.1:3000. Every request to this site is forwarded there.">
+          <Field label="Proxy-Ziel" hint="Die Adresse der App, z. B. http://127.0.0.1:3000. Jede Anfrage an diese Seite wird dorthin weitergeleitet.">
             <input className={inputCls} value={p.proxyTarget} onChange={e => set({ proxyTarget: e.target.value })} placeholder="http://127.0.0.1:3000" disabled={creating} />
           </Field>
         )}
         {error && <div className="text-xs text-status-red whitespace-pre-wrap">{error}</div>}
         <Button variant="primary" busy={creating} disabled={!nameValid || (p.framework === 'clone' && !/^https:\/\/[^/]+\/.+/.test(p.gitUrl.trim()))} onClick={create}>
-          {creating ? (p.framework === 'plain' || p.framework === 'proxy' ? 'Creating...' : 'Installing - this can take a few minutes...') : 'Create'}
+          {creating ? (p.framework === 'plain' || p.framework === 'proxy' ? 'Wird angelegt…' : 'Wird installiert - das kann ein paar Minuten dauern…') : 'Anlegen'}
         </Button>
       </div>
     </div>

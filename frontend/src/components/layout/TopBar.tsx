@@ -2,9 +2,10 @@ interface TopBarProps {
   tabs: string[]
   activeTab: string
   onTabChange: (tab: string) => void
+  labels?: Record<string, string>
 }
 
-export default function TopBar({ tabs, activeTab, onTabChange }: TopBarProps) {
+export default function TopBar({ tabs, activeTab, onTabChange, labels = {} }: TopBarProps) {
   return (
     <div className="flex items-center px-4 h-10 gap-1">
       {tabs.map(tab => (
@@ -17,7 +18,7 @@ export default function TopBar({ tabs, activeTab, onTabChange }: TopBarProps) {
               : 'text-text-muted hover:text-text-primary hover:bg-bg-secondary'
             }`}
         >
-          {tab}
+          {labels[tab] || tab}
         </button>
       ))}
     </div>

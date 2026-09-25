@@ -20,16 +20,16 @@ interface InstalledItem {
 // categories fall through into an "Other" bucket so we don't drop them
 // silently if the backend adds something new.
 const categoryOrder: { id: string; label: string; description: string }[] = [
-  { id: 'tools',     label: 'Tools',         description: 'Database clients, editors, utilities' },
-  { id: 'database',  label: 'Databases',     description: 'MySQL, PostgreSQL, MongoDB' },
-  { id: 'search',    label: 'Search',        description: 'Meilisearch and others' },
-  { id: 'php',       label: 'PHP',           description: 'PHP runtimes' },
-  { id: 'webserver', label: 'Web Servers',   description: 'Apache, Nginx, Caddy' },
-  { id: 'nodejs',    label: 'Node.js',       description: 'Node, Bun, version managers' },
-  { id: 'python',    label: 'Python',        description: 'Python toolchain (uv)' },
+  { id: 'tools',     label: 'Tools',         description: 'Datenbank-Clients, Editoren, Hilfsprogramme' },
+  { id: 'database',  label: 'Datenbanken',   description: 'MySQL, PostgreSQL, MongoDB' },
+  { id: 'search',    label: 'Suche',         description: 'Meilisearch und andere' },
+  { id: 'php',       label: 'PHP',           description: 'PHP-Laufzeitumgebungen' },
+  { id: 'webserver', label: 'Webserver',     description: 'Apache, Nginx, Caddy' },
+  { id: 'nodejs',    label: 'Node.js',       description: 'Node, Bun, Versionsverwaltung' },
+  { id: 'python',    label: 'Python',        description: 'Python-Werkzeuge (uv)' },
   { id: 'cloud',     label: 'Cloud',         description: 'Deploy CLIs (Cloudflared, Supabase, Fly.io)' },
-  { id: 'golang',    label: 'Go',            description: 'Go toolchain' },
-  { id: 'other',     label: 'Other',         description: '' },
+  { id: 'golang',    label: 'Go',            description: 'Go-Werkzeuge' },
+  { id: 'other',     label: 'Sonstiges',     description: '' },
 ]
 
 function categoryOf(item: InstalledItem): string {
@@ -47,7 +47,7 @@ export default function InstalledPage() {
       // @ts-ignore Wails bindings
       const fn = window.go?.app?.App?.ListInstalledItems
       if (!fn) {
-        setError('Backend not ready - reload the app once Hangar finishes starting.')
+        setError('Backend noch nicht bereit - lade die Seite neu, sobald Hangar fertig gestartet ist.')
         setLoading(false)
         return
       }
@@ -147,10 +147,10 @@ export default function InstalledPage() {
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-lg font-semibold text-text-primary">Installed</h1>
+            <h1 className="text-lg font-semibold text-text-primary">Installiert</h1>
             <p className="text-sm text-text-muted mt-1">
-              Everything you have on disk, grouped by category. Click <span className="text-accent">Open</span> to
-              launch a tool, <span className="text-accent">Folder</span> to reveal its install directory.
+              Alles, was installiert ist, nach Kategorien sortiert. <span className="text-accent">Öffnen</span> startet ein Programm,
+              <span className="text-accent">Ordner</span> zeigt sein Installationsverzeichnis.
             </p>
           </div>
           <button
@@ -158,7 +158,7 @@ export default function InstalledPage() {
             className="flex items-center gap-2 px-3 py-1.5 rounded text-xs text-text-muted hover:text-text-primary hover:bg-bg-secondary/60 transition-colors"
           >
             <RefreshCw size={14} strokeWidth={1.5} />
-            Refresh
+            Aktualisieren
           </button>
         </div>
 
@@ -169,13 +169,13 @@ export default function InstalledPage() {
         )}
 
         {loading ? (
-          <p className="text-text-muted text-sm">Loading installed items…</p>
+          <p className="text-text-muted text-sm">Installierte Pakete werden geladen…</p>
         ) : items.length === 0 ? (
           <div className="rounded-lg border border-border bg-bg-secondary/30 p-8 text-center">
             <Package2 size={28} strokeWidth={1.5} className="mx-auto text-text-muted mb-2" />
-            <p className="text-text-primary text-sm font-medium">Nothing installed yet</p>
+            <p className="text-text-primary text-sm font-medium">Noch nichts installiert</p>
             <p className="text-text-muted text-xs mt-1">
-              Head to <span className="text-accent">Packages</span> in the sidebar to download tools, PHP versions, and databases.
+              Unter <span className="text-accent">Pakete</span> in der Seitenleiste kannst du Tools, PHP-Versionen und Datenbanken herunterladen.
             </p>
           </div>
         ) : (
@@ -230,7 +230,7 @@ function InstalledRow({ item, busy, onLaunch, onOpenFolder }: RowProps) {
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-text-primary truncate">{item.label}</span>
           {item.is_active && (
-            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent/15 text-accent">ACTIVE</span>
+            <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-accent/15 text-accent">AKTIV</span>
           )}
         </div>
         <div className="text-xs text-text-dim font-mono truncate mt-0.5">
@@ -240,11 +240,11 @@ function InstalledRow({ item, busy, onLaunch, onOpenFolder }: RowProps) {
       <div className="flex items-center gap-2 flex-shrink-0">
         <button
           onClick={onOpenFolder}
-          title="Open install folder in Explorer"
+          title="Installationsordner im Explorer öffnen"
           className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded text-text-muted hover:text-text-primary hover:bg-bg-secondary border border-border transition-colors"
         >
           <Folder size={13} strokeWidth={1.5} />
-          Folder
+          Ordner
         </button>
         {launchInfo.actionable ? (
           <button
@@ -253,7 +253,7 @@ function InstalledRow({ item, busy, onLaunch, onOpenFolder }: RowProps) {
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-accent/15 text-accent hover:bg-accent/25 disabled:opacity-50 transition-colors"
           >
             {launchInfo.icon}
-            {busy ? 'Opening…' : launchInfo.label}
+            {busy ? 'Wird geöffnet…' : launchInfo.label}
           </button>
         ) : (
           <span className="text-xs text-text-dim italic px-2 py-1.5">{launchInfo.label}</span>
@@ -266,20 +266,20 @@ function InstalledRow({ item, busy, onLaunch, onOpenFolder }: RowProps) {
 function launchLabel(item: InstalledItem): { actionable: boolean; label: string; icon: JSX.Element | null } {
   switch (item.launch_kind) {
     case 'web':
-      return { actionable: true, label: 'Open', icon: <ExternalLink size={13} strokeWidth={1.5} /> }
+      return { actionable: true, label: 'Öffnen', icon: <ExternalLink size={13} strokeWidth={1.5} /> }
     case 'exe':
-      return { actionable: !!item.exe_path, label: 'Launch', icon: <Play size={13} strokeWidth={1.5} /> }
+      return { actionable: !!item.exe_path, label: 'Starten', icon: <Play size={13} strokeWidth={1.5} /> }
     case 'session':
-      return { actionable: !!item.exe_path, label: 'Open Sessions', icon: <Play size={13} strokeWidth={1.5} /> }
+      return { actionable: !!item.exe_path, label: 'Sitzungen öffnen', icon: <Play size={13} strokeWidth={1.5} /> }
     case 'service':
-      return { actionable: true, label: 'Start service', icon: <Server size={13} strokeWidth={1.5} /> }
+      return { actionable: true, label: 'Dienst starten', icon: <Server size={13} strokeWidth={1.5} /> }
     case 'cli':
-      return { actionable: false, label: 'CLI only - use Terminal', icon: <TerminalIcon size={13} strokeWidth={1.5} /> }
+      return { actionable: false, label: 'Nur Kommandozeile - Terminal nutzen', icon: <TerminalIcon size={13} strokeWidth={1.5} /> }
     case 'runtime':
-      return { actionable: false, label: 'Runtime', icon: null }
+      return { actionable: false, label: 'Laufzeitumgebung', icon: null }
     case 'none':
     default:
-      return { actionable: false, label: 'Not launchable', icon: null }
+      return { actionable: false, label: 'Nicht startbar', icon: null }
   }
 }
 

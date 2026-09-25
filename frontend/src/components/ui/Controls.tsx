@@ -63,7 +63,7 @@ export function Modal({ title, onClose, children, width = 'max-w-xl' }: {
       >
         <div className="flex items-center justify-between px-5 py-3 border-b border-border sticky top-0 bg-bg-sidebar">
           <h3 className="text-sm font-medium">{title}</h3>
-          <button onClick={onClose} className="text-text-dim hover:text-text-primary" aria-label="Close">
+          <button onClick={onClose} className="text-text-dim hover:text-text-primary" aria-label="Schließen">
             <X size={14} />
           </button>
         </div>

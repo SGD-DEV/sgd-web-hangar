@@ -29,6 +29,19 @@ interface DownloadProgress {
   error: string
 }
 
+// German names for the categories the backend sends in English.
+const categoryNames: Record<string, string> = {
+  php: 'PHP',
+  webserver: 'Webserver',
+  database: 'Datenbanken',
+  search: 'Suche',
+  nodejs: 'Node.js',
+  python: 'Python',
+  tools: 'Tools',
+  cloud: 'Cloud',
+  golang: 'Go',
+}
+
 const categoryIcons: Record<string, string> = {
   php: 'PHP',
   webserver: 'WEB',
@@ -185,7 +198,7 @@ export default function PackageManager() {
       {/* Category sidebar */}
       <div className="w-48 border-r border-border flex-shrink-0 overflow-y-auto">
         <div className="p-4">
-          <h2 className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">Categories</h2>
+          <h2 className="text-xs font-medium text-text-muted uppercase tracking-wider mb-3">Kategorien</h2>
           <div className="space-y-0.5">
             <button
               onClick={() => setActiveCategory('all')}
@@ -196,7 +209,7 @@ export default function PackageManager() {
                 }`}
             >
               <Package size={12} />
-              All Packages
+              Alle Pakete
             </button>
             {categories.map(cat => (
               <button
@@ -211,7 +224,7 @@ export default function PackageManager() {
                 <span className="text-[10px] font-bold font-mono w-5 text-center opacity-60">
                   {categoryIcons[cat.id] || '?'}
                 </span>
-                {cat.label}
+                {categoryNames[cat.id] || cat.label}
               </button>
             ))}
           </div>
@@ -222,18 +235,18 @@ export default function PackageManager() {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-lg font-medium">Packages</h2>
+            <h2 className="text-lg font-medium">Pakete</h2>
             <p className="text-xs text-text-muted mt-1">
-              Download and manage development tools — {packages.length} packages available
+              Werkzeuge herunterladen und verwalten - {packages.length} Pakete verfügbar
             </p>
           </div>
           <button
             onClick={() => setShowAddCustom(s => !s)}
             className="flex items-center gap-2 px-3 py-1.5 bg-accent text-on-accent rounded-lg text-xs font-medium hover:bg-accent-hover transition-colors"
-            title="Add a package by URL (e.g. a new PHP release)"
+            title="Paket über eine URL hinzufügen (z. B. eine neue PHP-Version)"
           >
             <Plus size={12} />
-            Add by URL
+            Per URL hinzufügen
           </button>
         </div>
 
@@ -250,12 +263,12 @@ export default function PackageManager() {
         {loading ? (
           <div className="text-text-dim text-sm flex items-center gap-2">
             <Loader2 size={14} className="animate-spin" />
-            Loading packages...
+            Pakete werden geladen…
           </div>
         ) : packages.length === 0 ? (
           <div className="bg-bg-secondary rounded-lg p-8 border border-border text-center">
             <Package size={32} className="mx-auto text-text-dim mb-3" />
-            <p className="text-text-muted text-sm">No packages in this category</p>
+            <p className="text-text-muted text-sm">Keine Pakete in dieser Kategorie</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -281,12 +294,12 @@ export default function PackageManager() {
                         {pkg.is_active && (
                           <span className="flex items-center gap-1 text-[10px] text-status-green font-medium px-1.5 py-0.5 bg-status-green/10 rounded">
                             <Zap size={8} />
-                            Active
+                            Aktiv
                           </span>
                         )}
                         {pkg.status === 'installed' && !pkg.is_active && (
                           <span className="text-[10px] text-accent font-medium px-1.5 py-0.5 bg-accent/10 rounded">
-                            Installed
+                            Installiert
                           </span>
                         )}
                       </div>
@@ -307,7 +320,7 @@ export default function PackageManager() {
                             />
                           </div>
                           <div className="flex items-center justify-between text-[10px] text-text-dim">
-                            <span>{prog.status === 'extracting' ? 'Extracting...' : `${prog.percent.toFixed(0)}%`}</span>
+                            <span>{prog.status === 'extracting' ? 'Entpackt…' : `${prog.percent.toFixed(0)}%`}</span>
                             <span>
                               {prog.total > 0 ? `${formatBytes(prog.downloaded)} / ${formatBytes(prog.total)}` : ''}
                               {prog.speed_mbps > 0 ? ` • ${prog.speed_mbps.toFixed(1)} MB/s` : ''}
@@ -331,7 +344,7 @@ export default function PackageManager() {
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-on-accent rounded-lg text-xs font-medium hover:bg-accent-hover transition-colors"
                       >
                         <Download size={12} />
-                        Install
+                        Installieren
                       </button>
                     )}
 
@@ -341,7 +354,7 @@ export default function PackageManager() {
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-primary text-text-dim rounded-lg text-xs border border-border cursor-not-allowed"
                       >
                         <Loader2 size={12} className="animate-spin" />
-                        Installing...
+                        Wird installiert…
                       </button>
                     )}
 
@@ -351,10 +364,10 @@ export default function PackageManager() {
                           <button
                             onClick={() => handleOpen(pkg.name)}
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-accent/10 text-accent border border-accent/20 rounded-lg text-xs font-medium hover:bg-accent/20 transition-colors"
-                            title="Launch / open this tool"
+                            title="Dieses Programm starten / öffnen"
                           >
                             <ExternalLink size={12} />
-                            Open
+                            Öffnen
                           </button>
                         )}
                         {!launchablePackages.includes(pkg.name) && (
@@ -363,13 +376,13 @@ export default function PackageManager() {
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-accent/10 text-accent border border-accent/20 rounded-lg text-xs font-medium hover:bg-accent/20 transition-colors"
                           >
                             <Zap size={12} />
-                            Activate
+                            Aktivieren
                           </button>
                         )}
                         <button
                           onClick={() => handleRemove(pkg.name, pkg.version)}
                           className="p-1.5 text-text-dim hover:text-status-red transition-colors"
-                          title="Remove"
+                          title="Entfernen"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -379,7 +392,7 @@ export default function PackageManager() {
                     {pkg.status === 'active' && (
                       <span className="flex items-center gap-1 px-3 py-1.5 text-xs text-status-green">
                         <Check size={12} />
-                        Active
+                        Aktiv
                       </span>
                     )}
                   </div>
@@ -448,7 +461,7 @@ function CustomPackageForm({ onClose, onAdded }: { onClose: () => void; onAdded:
   async function handleSave() {
     setError('')
     if (!url.trim() || !name.trim() || !version.trim()) {
-      setError('URL, Name and Version are required.')
+      setError('URL, Name und Version sind Pflichtfelder.')
       return
     }
     setSubmitting(true)
@@ -481,17 +494,17 @@ function CustomPackageForm({ onClose, onAdded }: { onClose: () => void; onAdded:
     <div className="mb-6 bg-bg-secondary border border-border rounded-lg p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium flex items-center gap-2">
-          <LinkIcon size={14} /> Add Package by URL
+          <LinkIcon size={14} /> Paket per URL hinzufügen
         </h3>
         <button onClick={onClose} className="text-text-muted hover:text-text-primary text-sm">×</button>
       </div>
       <p className="text-xs text-text-muted">
-        Paste a download URL (e.g. for a new PHP release). We'll auto-detect the package type from
-        the host. Edit any field below before saving.
+        Füge eine Download-URL ein (z. B. für eine neue PHP-Version). Der Pakettyp wird anhand des Servers
+        erkannt. Du kannst alle Felder vor dem Speichern anpassen.
       </p>
 
       <div>
-        <label className="text-xs text-text-muted block mb-1">Download URL</label>
+        <label className="text-xs text-text-muted block mb-1">Download-URL</label>
         <input
           type="url"
           value={url}
@@ -529,7 +542,7 @@ function CustomPackageForm({ onClose, onAdded }: { onClose: () => void; onAdded:
       </div>
 
       <div>
-        <label className="text-xs text-text-muted block mb-1">Label (display name)</label>
+        <label className="text-xs text-text-muted block mb-1">Bezeichnung (Anzeigename)</label>
         <input
           value={label}
           onChange={e => setLabel(e.target.value)}
@@ -540,22 +553,22 @@ function CustomPackageForm({ onClose, onAdded }: { onClose: () => void; onAdded:
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-text-muted block mb-1">Category</label>
+          <label className="text-xs text-text-muted block mb-1">Kategorie</label>
           <select
             value={category}
             onChange={e => setCategory(e.target.value)}
             className="w-full bg-bg-primary border border-border rounded px-3 py-1.5 text-xs"
           >
             <option value="php">PHP</option>
-            <option value="webserver">Web Server</option>
-            <option value="database">Database</option>
+            <option value="webserver">Webserver</option>
+            <option value="database">Datenbank</option>
             <option value="nodejs">Node.js</option>
             <option value="tools">Tools</option>
             <option value="golang">Go</option>
           </select>
         </div>
         <div>
-          <label className="text-xs text-text-muted block mb-1">Install subfolder</label>
+          <label className="text-xs text-text-muted block mb-1">Installations-Unterordner</label>
           <input
             value={subDir}
             onChange={e => setSubDir(e.target.value)}
@@ -576,7 +589,7 @@ function CustomPackageForm({ onClose, onAdded }: { onClose: () => void; onAdded:
           onClick={onClose}
           className="px-3 py-1.5 text-xs text-text-muted hover:text-text-primary transition-colors"
         >
-          Cancel
+          Abbrechen
         </button>
         <button
           onClick={handleSave}
@@ -584,7 +597,7 @@ function CustomPackageForm({ onClose, onAdded }: { onClose: () => void; onAdded:
           className="flex items-center gap-1.5 px-4 py-1.5 bg-accent text-on-accent rounded text-xs font-medium hover:bg-accent-hover transition-colors disabled:opacity-50"
         >
           {submitting ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
-          {submitting ? 'Adding...' : 'Add Package'}
+          {submitting ? 'Wird hinzugefügt…' : 'Paket hinzufügen'}
         </button>
       </div>
     </div>

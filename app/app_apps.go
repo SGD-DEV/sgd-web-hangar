@@ -96,7 +96,7 @@ func (a *App) SaveProjectApp(name, folder string, cfg projects.AppService) (proj
 	}
 	for _, other := range a.projectManager.List() {
 		if other.Name != name && other.App != nil && other.App.Port == cfg.Port {
-			return p, fmt.Errorf("port %d is already used by project %s", cfg.Port, other.Name)
+			return p, fmt.Errorf("Port %d wird schon von Projekt %s verwendet", cfg.Port, other.Name)
 		}
 	}
 	folder = strings.TrimSpace(folder)
@@ -104,7 +104,7 @@ func (a *App) SaveProjectApp(name, folder string, cfg projects.AppService) (proj
 		folder = p.Path
 	}
 	if info, err := os.Stat(folder); err != nil || !info.IsDir() {
-		return p, fmt.Errorf("folder %q does not exist", folder)
+		return p, fmt.Errorf("der Ordner %q existiert nicht", folder)
 	}
 	p.Path = folder
 	p.DocumentRoot = folder
@@ -115,11 +115,11 @@ func (a *App) SaveProjectApp(name, folder string, cfg projects.AppService) (proj
 		return p, err
 	}
 	if err := a.projectManager.EnsureProjectsReady(); err != nil {
-		return p, fmt.Errorf("saved, but updating the web server failed: %w", err)
+		return p, fmt.Errorf("gespeichert, aber der Webserver konnte nicht aktualisiert werden: %w", err)
 	}
 	if a.appInstalled(name) {
 		if err := a.applyAppService(p, true); err != nil {
-			return p, fmt.Errorf("saved, but updating the service failed: %w", err)
+			return p, fmt.Errorf("gespeichert, aber der Dienst konnte nicht aktualisiert werden: %w", err)
 		}
 	}
 	return p, nil
@@ -135,7 +135,7 @@ func appCmdParams(command string) string {
 
 func (a *App) applyAppService(p projects.Project, restart bool) error {
 	if p.App == nil {
-		return fmt.Errorf("project %s has no app settings", p.Name)
+		return fmt.Errorf("Projekt %s hat keine App-Einstellungen", p.Name)
 	}
 	cmdExe := filepath.Join(os.Getenv("SystemRoot"), "System32", "cmd.exe")
 	err := winsvc.WriteNSSMParams(appServiceName(p.Name), winsvc.NSSMParams{
@@ -161,11 +161,11 @@ func (a *App) InstallAppService(name string) error {
 		return err
 	}
 	if p.App == nil {
-		return fmt.Errorf("save the app settings first")
+		return fmt.Errorf("speichere zuerst die App-Einstellungen")
 	}
 	nssm := winsvc.FindNSSM()
 	if nssm == "" {
-		return fmt.Errorf("nssm.exe not found")
+		return fmt.Errorf("nssm.exe nicht gefunden")
 	}
 	sid, err := winsvc.CurrentUserSID()
 	if err != nil {
@@ -215,7 +215,7 @@ func (a *App) InstallAppService(name string) error {
 func (a *App) UninstallAppService(name string) error {
 	nssm := winsvc.FindNSSM()
 	if nssm == "" {
-		return fmt.Errorf("nssm.exe not found")
+		return fmt.Errorf("nssm.exe nicht gefunden")
 	}
 	q := winsvc.Q
 	return winsvc.RunElevatedScript(strings.Join([]string{
@@ -242,7 +242,7 @@ func (a *App) DeployApp(name string) (string, error) {
 		return "", err
 	}
 	if p.App == nil {
-		return "", fmt.Errorf("project %s is not an app", name)
+		return "", fmt.Errorf("Projekt %s ist keine App", name)
 	}
 	var log []string
 	if a.isRepoRoot(p.Path) {
@@ -262,7 +262,7 @@ func (a *App) DeployApp(name string) (string, error) {
 		out, err := cmd.CombinedOutput()
 		log = append(log, "$ "+p.App.BuildCommand, lastNLines(string(out), 40))
 		if err != nil {
-			return strings.Join(log, "\n"), fmt.Errorf("build failed: %v", err)
+			return strings.Join(log, "\n"), fmt.Errorf("Build fehlgeschlagen: %v", err)
 		}
 	}
 	if a.appInstalled(name) {

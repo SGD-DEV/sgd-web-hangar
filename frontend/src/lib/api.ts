@@ -5,7 +5,7 @@ import { create } from 'zustand'
 // (plain strings, Error objects) into Errors with a readable message.
 export async function call<T = any>(method: string, ...args: any[]): Promise<T> {
   const fn = window.go?.app?.App?.[method]
-  if (!fn) throw new Error(`Backend method ${method} is not available`)
+  if (!fn) throw new Error(`Backend-Funktion ${method} ist nicht verfügbar`)
   try {
     return await fn(...args)
   } catch (e: any) {
@@ -14,7 +14,7 @@ export async function call<T = any>(method: string, ...args: any[]): Promise<T> 
 }
 
 export function errorMessage(e: any): string {
-  if (!e) return 'Unknown error'
+  if (!e) return 'Unbekannter Fehler'
   if (typeof e === 'string') return e
   return e.message || String(e)
 }
@@ -80,7 +80,7 @@ export function useAction<A extends any[], R>(
       if (s) toast.success(typeof s === 'function' ? s(r) : s)
       return r
     } catch (e) {
-      toast.error(optsRef.current.error || 'Action failed', errorMessage(e))
+      toast.error(optsRef.current.error || 'Aktion fehlgeschlagen', errorMessage(e))
       return undefined
     } finally {
       running.current = false

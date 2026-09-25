@@ -63,7 +63,7 @@ func applyWordPress(p Project) ([]string, error) {
 	var written []string
 	if p.Database != nil {
 		if p.Database.Type != "mysql" {
-			return nil, fmt.Errorf("WordPress needs MySQL, not %s", p.Database.Type)
+			return nil, fmt.Errorf("WordPress braucht MySQL, nicht %s", p.Database.Type)
 		}
 		path, err := writeWPConfig(p.Path, *p.Database)
 		if err != nil {
@@ -89,7 +89,7 @@ func writeWPConfig(dir string, db Database) (string, error) {
 	if os.IsNotExist(err) {
 		data, err = os.ReadFile(filepath.Join(dir, "wp-config-sample.php"))
 		if err != nil {
-			return "", fmt.Errorf("neither wp-config.php nor wp-config-sample.php found in %s", dir)
+			return "", fmt.Errorf("weder wp-config.php noch wp-config-sample.php in %s gefunden", dir)
 		}
 		fresh = true
 	} else if err != nil {

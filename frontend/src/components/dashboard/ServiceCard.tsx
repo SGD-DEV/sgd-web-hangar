@@ -1,3 +1,5 @@
+import { statusLabel } from '../../lib/i18n'
+
 interface ServiceStatus {
   name: string
   status: 'running' | 'stopped' | 'starting' | 'error'
@@ -51,7 +53,7 @@ export default function ServiceCard({ name, status, selected, onClick }: Service
           )}
         </div>
         <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-xs text-text-dim capitalize">{status?.status || 'unknown'}</span>
+          <span className="text-xs text-text-dim">{statusLabel(status?.status)}</span>
           {status?.port ? (
             <span className="text-xs text-text-dim font-mono">:{status.port}</span>
           ) : null}

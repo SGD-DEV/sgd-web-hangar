@@ -26,7 +26,7 @@ export default function Toaster() {
                 <p className="text-xs text-text-muted mt-1 whitespace-pre-wrap break-words font-mono select-text">{t.detail}</p>
               )}
             </div>
-            <button onClick={() => dismiss(t.id)} className="text-text-dim hover:text-text-primary" aria-label="Dismiss">
+            <button onClick={() => dismiss(t.id)} className="text-text-dim hover:text-text-primary" aria-label="Ausblenden">
               <X size={14} />
             </button>
           </div>

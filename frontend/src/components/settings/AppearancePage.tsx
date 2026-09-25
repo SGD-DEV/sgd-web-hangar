@@ -18,7 +18,7 @@ function ColorInput({ value, onChange, presets, allowEmpty, emptyLabel }: {
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <input type="color" value={value || '#b5f23d'} onChange={e => onChange(e.target.value)}
-          className="w-9 h-8 rounded border border-border bg-bg-primary cursor-pointer p-0.5" aria-label="Pick a colour" />
+          className="w-9 h-8 rounded border border-border bg-bg-primary cursor-pointer p-0.5" aria-label="Farbe wählen" />
         <input className={`${inputCls} w-32`} value={value} placeholder={allowEmpty ? emptyLabel : '#b5f23d'}
           onChange={e => onChange(e.target.value.trim())} />
         {allowEmpty && value && (
@@ -64,21 +64,21 @@ export default function AppearancePage() {
     const s = await call<AppearanceSettings>('SaveAppearance', form)
     setSaved(s)
     setForm(s)
-  }, { success: 'Appearance saved', error: 'Could not save' })
+  }, { success: 'Erscheinungsbild gespeichert', error: 'Speichern fehlgeschlagen' })
 
   const [pickLogo, picking] = useAction(async () => {
     const s = await call<AppearanceSettings>('PickAppearanceLogo')
     setSaved({ ...useAppearance.getState().settings!, logo: s.logo })
     setForm(f => f && { ...f, logo: s.logo })
-  }, { error: 'Could not use this logo' })
+  }, { error: 'Dieses Logo kann nicht verwendet werden' })
 
   const [removeLogo] = useAction(async () => {
     const s = await call<AppearanceSettings>('RemoveAppearanceLogo')
     setSaved({ ...useAppearance.getState().settings!, logo: s.logo })
     setForm(f => f && { ...f, logo: '' })
-  }, { error: 'Could not remove logo' })
+  }, { error: 'Logo konnte nicht entfernt werden' })
 
-  if (!form) return <div className="flex-1 p-6 text-text-dim text-sm">Loading...</div>
+  if (!form) return <div className="flex-1 p-6 text-text-dim text-sm">Lädt…</div>
 
   const set = (patch: Partial<AppearanceSettings>) => setForm(f => f && { ...f, ...patch })
   const setStarter = (patch: Partial<AppearanceSettings['starter']>) => setForm(f => f && { ...f, starter: { ...f.starter, ...patch } })
@@ -96,12 +96,12 @@ export default function AppearancePage() {
     <div className="flex-1 p-6 overflow-y-auto">
       <div className="flex items-center justify-between mb-6 max-w-6xl">
         <div>
-          <h2 className="text-lg font-medium">Appearance</h2>
-          <p className="text-xs text-text-muted mt-1">Name, colour and logo of this panel, and the start page new projects get.</p>
+          <h2 className="text-lg font-medium">Erscheinungsbild</h2>
+          <p className="text-xs text-text-muted mt-1">Name, Farbe und Logo dieses Panels sowie die Startseite für neue Projekte.</p>
         </div>
         <div className="flex gap-2">
-          {dirty && <Button onClick={() => { setForm(saved); if (saved) applyAccent(saved.accent) }} icon={<RotateCcw size={12} />}>Discard</Button>}
-          <Button variant="primary" busy={saving} disabled={!dirty} onClick={save}>Save</Button>
+          {dirty && <Button onClick={() => { setForm(saved); if (saved) applyAccent(saved.accent) }} icon={<RotateCcw size={12} />}>Verwerfen</Button>}
+          <Button variant="primary" busy={saving} disabled={!dirty} onClick={save}>Speichern</Button>
         </div>
       </div>
 
@@ -109,65 +109,65 @@ export default function AppearancePage() {
         <div className="space-y-6">
           <Card className="p-4 space-y-4">
             <h3 className="text-sm font-medium">Panel</h3>
-            <Field label="Name" hint="Shown at the top of the sidebar and as the window title.">
+            <Field label="Name" hint="Erscheint oben in der Seitenleiste und als Fenstertitel.">
               <input className={inputCls} value={form.app_name} maxLength={40} onChange={e => set({ app_name: e.target.value })} />
             </Field>
             <div>
               <span className="block text-xs text-text-muted mb-1">Logo</span>
               <div className="flex items-center gap-3">
                 <div className="w-14 h-14 rounded-lg border border-border bg-bg-primary flex items-center justify-center overflow-hidden">
-                  {form.logo ? <img src={form.logo} alt="" className="max-w-full max-h-full object-contain" /> : <span className="text-[10px] text-text-dim">none</span>}
+                  {form.logo ? <img src={form.logo} alt="" className="max-w-full max-h-full object-contain" /> : <span className="text-[10px] text-text-dim">keins</span>}
                 </div>
-                <Button busy={picking} onClick={pickLogo} icon={<ImagePlus size={12} />}>{form.logo ? 'Replace...' : 'Choose...'}</Button>
-                {form.logo && <Button variant="ghost" onClick={removeLogo} icon={<Trash2 size={12} />}>Remove</Button>}
+                <Button busy={picking} onClick={pickLogo} icon={<ImagePlus size={12} />}>{form.logo ? 'Ersetzen…' : 'Auswählen…'}</Button>
+                {form.logo && <Button variant="ghost" onClick={removeLogo} icon={<Trash2 size={12} />}>Entfernen</Button>}
               </div>
-              <span className="block text-[11px] text-text-dim mt-1">PNG, JPG, SVG or WebP, up to 512 KB. Applies immediately.</span>
+              <span className="block text-[11px] text-text-dim mt-1">PNG, JPG, SVG oder WebP, bis 512 KB. Wirkt sofort.</span>
             </div>
-            <Field label="Accent colour" hint="Buttons, highlights and the active menu entry. Text on it switches between dark and light automatically.">
+            <Field label="Akzentfarbe" hint="Buttons, Hervorhebungen und der aktive Menüpunkt. Die Schrift darauf wechselt automatisch zwischen dunkel und hell.">
               <ColorInput value={form.accent} onChange={accent => set({ accent })} presets={accentPresets} />
             </Field>
           </Card>
 
           <Card className="p-4 space-y-4">
-            <h3 className="text-sm font-medium">Start page for new projects</h3>
+            <h3 className="text-sm font-medium">Startseite für neue Projekte</h3>
             <p className="text-[11px] text-text-dim -mt-2">
-              New plain PHP projects get this index.php. Placeholders: <span className="font-mono">{'{name} {domain} {php} {folder}'}</span>. Existing projects keep their page.
+              Neue PHP-Projekte bekommen diese index.php. Platzhalter: <span className="font-mono">{'{name} {domain} {php} {folder}'}</span>. Bestehende Projekte behalten ihre Seite.
             </p>
-            <Field label="Language">
+            <Field label="Sprache">
               <select className={inputCls} value={form.starter.lang} onChange={e => setLang(e.target.value)}>
                 <option value="de">Deutsch</option>
                 <option value="en">English</option>
               </select>
             </Field>
-            <Field label="Heading">
+            <Field label="Überschrift">
               <input className={inputCls} value={form.starter.heading} onChange={e => setStarter({ heading: e.target.value })} />
             </Field>
             <Field label="Text">
               <textarea className={`${inputCls} h-20 resize-y`} value={form.starter.text} onChange={e => setStarter({ text: e.target.value })} />
             </Field>
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Background">
+              <Field label="Hintergrund">
                 <ColorInput value={form.starter.background} onChange={background => setStarter({ background })} presets={backgroundPresets} />
               </Field>
-              <Field label="Accent">
-                <ColorInput value={form.starter.accent} onChange={accent => setStarter({ accent })} presets={accentPresets.slice(0, 5)} allowEmpty emptyLabel="panel accent" />
+              <Field label="Akzent">
+                <ColorInput value={form.starter.accent} onChange={accent => setStarter({ accent })} presets={accentPresets.slice(0, 5)} allowEmpty emptyLabel="wie Panel" />
               </Field>
             </div>
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-sm text-text-muted cursor-pointer">
                 <input type="checkbox" className="accent-accent" checked={form.starter.show_logo} onChange={e => setStarter({ show_logo: e.target.checked })} />
-                Show the logo
+                Logo anzeigen
               </label>
               <label className="flex items-center gap-2 text-sm text-text-muted cursor-pointer">
                 <input type="checkbox" className="accent-accent" checked={form.starter.show_php} onChange={e => setStarter({ show_php: e.target.checked })} />
-                Mention the PHP version (the sentence with {'{php}'})
+                PHP-Version nennen (der Satz mit {'{php}'})
               </label>
             </div>
           </Card>
         </div>
 
         <div className="xl:sticky xl:top-0 self-start">
-          <span className="block text-xs text-text-muted mb-1">Preview</span>
+          <span className="block text-xs text-text-muted mb-1">Vorschau</span>
           <div className="rounded-lg border border-border overflow-hidden bg-bg-primary">
             <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border bg-bg-secondary">
               <span className="w-2.5 h-2.5 rounded-full bg-status-red/60" />
@@ -175,7 +175,7 @@ export default function AppearancePage() {
               <span className="w-2.5 h-2.5 rounded-full bg-status-green/60" />
               <span className="ml-3 text-[11px] font-mono text-text-dim">http://mein-projekt.test</span>
             </div>
-            <iframe title="Start page preview" srcDoc={preview} sandbox="" className="w-full h-[420px] bg-white" />
+            <iframe title="Vorschau der Startseite" srcDoc={preview} sandbox="" className="w-full h-[420px] bg-white" />
           </div>
         </div>
       </div>

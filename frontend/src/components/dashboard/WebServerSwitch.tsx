@@ -31,9 +31,9 @@ export default function WebServerSwitch({ statuses }: { statuses: Record<string,
     try {
       await call('SwitchWebServer', target)
       setActive(target)
-      toast.success(`${target === 'apache' ? 'Apache' : 'Nginx'} is now serving all sites`)
+      toast.success(`${target === 'apache' ? 'Apache' : 'Nginx'} liefert jetzt alle Seiten aus`)
     } catch (e) {
-      toast.error(`Could not switch to ${target}`, errorMessage(e))
+      toast.error(`Wechsel zu ${target} fehlgeschlagen`, errorMessage(e))
     } finally {
       setBusy(null)
     }
@@ -43,7 +43,7 @@ export default function WebServerSwitch({ statuses }: { statuses: Record<string,
 
   return (
     <div className="mb-5">
-      <h2 className="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">Web server</h2>
+      <h2 className="text-xs font-medium text-text-muted uppercase tracking-wider mb-2">Webserver</h2>
       <div className="grid grid-cols-2 gap-1 p-1 bg-bg-secondary border border-border rounded-lg">
         {['apache', 'nginx'].map(name => {
           const isActive = active === name
@@ -54,7 +54,7 @@ export default function WebServerSwitch({ statuses }: { statuses: Record<string,
               disabled={!!busy}
               className={`flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-medium transition-colors
                 ${isActive ? 'bg-accent/15 text-accent' : 'text-text-muted hover:text-text-primary'} disabled:cursor-wait`}
-              title={isActive ? `${name} is the active web server` : `Stop the other server and serve all sites with ${name}`}
+              title={isActive ? `${name} ist der aktive Webserver` : `Den anderen Server stoppen und alle Seiten mit ${name} ausliefern`}
             >
               {busy === name
                 ? <Loader2 size={11} className="animate-spin" />
@@ -66,7 +66,7 @@ export default function WebServerSwitch({ statuses }: { statuses: Record<string,
       </div>
       {pool.length > 0 && (
         <p className="text-[11px] text-text-dim mt-2">
-          PHP workers: {pool.map(p => `${p.version} (${p.alive}/${p.workers})`).join(', ')}
+          PHP-Worker: {pool.map(p => `${p.version} (${p.alive}/${p.workers})`).join(', ')}
         </p>
       )}
     </div>

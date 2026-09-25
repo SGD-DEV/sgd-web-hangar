@@ -100,16 +100,16 @@ func (s *Store) Save(st Settings) (Settings, error) {
 		st.AppName = "Hangar"
 	}
 	if len([]rune(st.AppName)) > 40 {
-		return st, fmt.Errorf("the name may have at most 40 characters")
+		return st, fmt.Errorf("der Name darf höchstens 40 Zeichen haben")
 	}
 	if !hexColor.MatchString(st.Accent) {
-		return st, fmt.Errorf("accent colour must look like #b5f23d")
+		return st, fmt.Errorf("die Akzentfarbe muss wie #b5f23d aussehen")
 	}
 	if !hexColor.MatchString(st.Starter.Background) {
-		return st, fmt.Errorf("background colour must look like #0f1010")
+		return st, fmt.Errorf("die Hintergrundfarbe muss wie #0f1010 aussehen")
 	}
 	if st.Starter.Accent != "" && !hexColor.MatchString(st.Starter.Accent) {
-		return st, fmt.Errorf("start page accent must look like #b5f23d or be empty")
+		return st, fmt.Errorf("der Akzent der Startseite muss wie #b5f23d aussehen oder leer sein")
 	}
 	if st.Starter.Lang != "de" && st.Starter.Lang != "en" {
 		st.Starter.Lang = "de"
@@ -143,14 +143,14 @@ func logoMime(path string) string {
 func (s *Store) SetLogo(src string) error {
 	ext := strings.ToLower(filepath.Ext(src))
 	if _, ok := logoExts[ext]; !ok {
-		return fmt.Errorf("logo must be a PNG, JPG, SVG or WebP file")
+		return fmt.Errorf("das Logo muss eine PNG-, JPG-, SVG- oder WebP-Datei sein")
 	}
 	data, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
 	if len(data) > MaxLogoBytes {
-		return fmt.Errorf("logo is %d KB - at most %d KB, please use a smaller image", len(data)/1024, MaxLogoBytes/1024)
+		return fmt.Errorf("das Logo hat %d KB - erlaubt sind höchstens %d KB, bitte ein kleineres Bild verwenden", len(data)/1024, MaxLogoBytes/1024)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()

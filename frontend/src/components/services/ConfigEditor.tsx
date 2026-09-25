@@ -79,8 +79,8 @@ export default function ConfigEditor({ serviceName }: ConfigEditorProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-medium">Configuration</h2>
-          <p className="text-xs text-text-muted mt-0.5">Edit {serviceName} config files</p>
+          <h2 className="text-sm font-medium">Konfiguration</h2>
+          <p className="text-xs text-text-muted mt-0.5">Konfigurationsdateien von {serviceName} bearbeiten</p>
         </div>
         <div className="flex items-center gap-2">
           {/* File selector dropdown */}
@@ -90,7 +90,7 @@ export default function ConfigEditor({ serviceName }: ConfigEditorProps) {
               className="flex items-center gap-2 px-3 py-1.5 bg-bg-secondary border border-border rounded-lg text-xs font-mono text-text-muted hover:text-text-primary hover:border-text-dim transition-colors"
             >
               <FileText size={12} />
-              {selectedFile || 'Select file'}
+              {selectedFile || 'Datei wählen'}
               <ChevronDown size={10} />
             </button>
             {showDropdown && files.length > 0 && (
@@ -115,7 +115,7 @@ export default function ConfigEditor({ serviceName }: ConfigEditorProps) {
             className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-on-accent rounded-lg text-xs font-medium hover:bg-accent-hover transition-colors disabled:opacity-40"
           >
             <Save size={12} />
-            {saving ? 'Saving...' : saved ? 'Saved!' : 'Save'}
+            {saving ? 'Speichert…' : saved ? 'Gespeichert!' : 'Speichern'}
           </button>
         </div>
       </div>
@@ -127,10 +127,10 @@ export default function ConfigEditor({ serviceName }: ConfigEditorProps) {
       )}
 
       {loading ? (
-        <div className="text-text-dim text-sm py-8 text-center">Loading...</div>
+        <div className="text-text-dim text-sm py-8 text-center">Lädt…</div>
       ) : !selectedFile ? (
         <div className="text-text-dim text-sm py-8 text-center">
-          No config files found. Start the service first to generate configuration.
+          Keine Konfigurationsdateien gefunden. Starte den Dienst zuerst, damit sie erzeugt werden.
         </div>
       ) : (
         <textarea

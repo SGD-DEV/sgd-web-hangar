@@ -8,18 +8,18 @@ interface SidebarProps {
 }
 
 const navItems: { id: NavItem; label: string; icon: typeof Server }[] = [
-  { id: 'servers', label: 'Servers', icon: Server },
-  { id: 'packages', label: 'Packages', icon: Package },
-  { id: 'installed', label: 'Installed', icon: LayoutGrid },
+  { id: 'servers', label: 'Server', icon: Server },
+  { id: 'packages', label: 'Pakete', icon: Package },
+  { id: 'installed', label: 'Installiert', icon: LayoutGrid },
   { id: 'php', label: 'PHP', icon: Code2 },
-  { id: 'projects', label: 'Projects', icon: FolderOpen },
-  { id: 'databases', label: 'Databases', icon: Database },
+  { id: 'projects', label: 'Projekte', icon: FolderOpen },
+  { id: 'databases', label: 'Datenbanken', icon: Database },
   { id: 'tunnel', label: 'Tunnel', icon: Cloud },
   { id: 'ssl', label: 'SSL', icon: Shield },
   { id: 'terminal', label: 'Terminal', icon: Terminal },
   { id: 'syspath', label: 'PATH', icon: Route },
-  { id: 'appearance', label: 'Appearance', icon: Palette },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'appearance', label: 'Erscheinungsbild', icon: Palette },
+  { id: 'settings', label: 'Einstellungen', icon: Settings },
 ]
 
 export default function Sidebar({ activeNav, onNavChange }: SidebarProps) {

@@ -717,7 +717,7 @@ func (a *App) UpdateProject(name string, project projects.Project) error {
 
 func (a *App) DeleteProject(name string) error {
 	if a.appInstalled(name) {
-		return fmt.Errorf("remove the app service first (App dialog > Remove service)")
+		return fmt.Errorf("entferne zuerst den App-Dienst (App-Dialog > Dienst entfernen)")
 	}
 	return a.projectManager.Delete(name)
 }
@@ -1302,7 +1302,7 @@ func (a *App) CreateProjectWithFramework(framework, name, version string) map[st
 	}
 	name = strings.ToLower(strings.ReplaceAll(name, " ", "-"))
 	if !validProjectName.MatchString(name) {
-		result["error"] = "Project name may only contain lowercase letters, digits and - (set the domain separately)"
+		result["error"] = "Der Projektname darf nur Kleinbuchstaben, Ziffern und - enthalten (die Domain wird separat eingetragen)"
 		return result
 	}
 

@@ -61,10 +61,10 @@ export default function AppSettings() {
     try {
       await call('UpdateConfig', config)
       setSaved(true)
-      toast.success('Settings saved', 'Port and PHP worker changes apply the next time a web server starts.')
+      toast.success('Einstellungen gespeichert', 'Änderungen an Ports und PHP-Workern gelten beim nächsten Start eines Webservers.')
       setTimeout(() => setSaved(false), 2000)
     } catch (e) {
-      toast.error('Settings not saved', errorMessage(e))
+      toast.error('Einstellungen nicht gespeichert', errorMessage(e))
     } finally {
       setSaving(false)
     }
@@ -73,12 +73,12 @@ export default function AppSettings() {
   return (
     <div className="flex-1 p-6 overflow-y-auto">
       <div className="max-w-xl">
-        <h2 className="text-lg font-medium mb-6">Settings</h2>
+        <h2 className="text-lg font-medium mb-6">Einstellungen</h2>
 
         <div className="space-y-6">
           {/* Projects Root */}
           <div>
-            <label className="block text-xs text-text-muted mb-1.5">Projects Root Directory</label>
+            <label className="block text-xs text-text-muted mb-1.5">Projektordner</label>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -93,10 +93,10 @@ export default function AppSettings() {
                 }}
                 className="px-3 py-2 bg-bg-secondary border border-border rounded-lg text-xs text-text-muted hover:text-text-primary"
               >
-                Browse...
+                Durchsuchen…
               </button>
             </div>
-            <p className="text-[11px] text-text-dim mt-1">New projects are created here; Scan registers folders found here.</p>
+            <p className="text-[11px] text-text-dim mt-1">Neue Projekte werden hier angelegt; „Suchen“ übernimmt vorhandene Ordner von hier.</p>
           </div>
 
           {/* Hosting */}
@@ -112,31 +112,31 @@ export default function AppSettings() {
                   className="rounded border-border bg-bg-secondary accent-accent"
                 />
                 <label htmlFor="auto-start-hosting" className="text-sm text-text-muted cursor-pointer">
-                  When Hangar starts, start the services that were running before (after a reboot)
+                  Beim Start von Hangar die Dienste starten, die vorher liefen (z. B. nach einem Neustart)
                 </label>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-text-muted w-44">PHP workers per version:</span>
+                <span className="text-xs text-text-muted w-44">PHP-Worker pro Version:</span>
                 <input
                   type="number" min={1} max={8}
                   value={config.php_workers || 4}
                   onChange={e => setConfig({ ...config, php_workers: Math.min(8, Math.max(1, parseInt(e.target.value) || 4)) })}
                   className="w-20 px-2 py-1 bg-bg-secondary border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent/50 font-mono"
                 />
-                <span className="text-[11px] text-text-dim">parallel PHP requests (1-8)</span>
+                <span className="text-[11px] text-text-dim">parallele PHP-Anfragen (1-8)</span>
               </div>
               <div>
-                <label className="block text-xs text-text-muted mb-1.5">Cloudflare Tunnel config file</label>
+                <label className="block text-xs text-text-muted mb-1.5">Konfigurationsdatei für den Cloudflare Tunnel</label>
                 <input
                   type="text"
                   value={config.tunnel_config_path || ''}
                   onChange={e => setConfig({ ...config, tunnel_config_path: e.target.value })}
-                  placeholder="(default: Hangar data folder\cloudflared\config.yml)"
+                  placeholder="(Standard: Hangar-Datenordner\cloudflared\config.yml)"
                   className="w-full px-3 py-2 bg-bg-secondary border border-border rounded-lg text-sm text-text-primary placeholder-text-dim focus:outline-none focus:border-accent/50 font-mono select-text"
                 />
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-text-muted w-44">Tunnel Windows service:</span>
+                <span className="text-xs text-text-muted w-44">Windows-Dienst des Tunnels:</span>
                 <input
                   type="text"
                   value={config.tunnel_service_name || 'Cloudflared'}
@@ -149,7 +149,7 @@ export default function AppSettings() {
 
           {/* Web Servers */}
           <div className="pt-4 border-t border-border">
-            <h3 className="text-sm font-medium mb-4">Web Servers</h3>
+            <h3 className="text-sm font-medium mb-4">Webserver</h3>
             <div className="space-y-4">
               {/* Apache */}
               <div className="flex items-center gap-4">
@@ -207,14 +207,14 @@ export default function AppSettings() {
                 className="rounded border-border bg-bg-secondary accent-accent"
               />
               <label htmlFor="ssl-enabled" className="text-sm text-text-muted cursor-pointer">
-                Enable SSL for projects (generates certs with mkcert)
+                SSL für Projekte aktivieren (erzeugt Zertifikate mit mkcert)
               </label>
             </div>
           </div>
 
           {/* Database Ports */}
           <div className="pt-4 border-t border-border">
-            <h3 className="text-sm font-medium mb-4">Database Ports</h3>
+            <h3 className="text-sm font-medium mb-4">Datenbank-Ports</h3>
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-text-muted">MySQL:</span>
@@ -239,7 +239,7 @@ export default function AppSettings() {
 
           {/* Other */}
           <div className="pt-4 border-t border-border">
-            <h3 className="text-sm font-medium mb-4">Other</h3>
+            <h3 className="text-sm font-medium mb-4">Sonstiges</h3>
             <div className="space-y-4">
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2">
@@ -271,7 +271,7 @@ export default function AppSettings() {
               disabled={saving}
               className="px-4 py-2 bg-accent text-on-accent rounded-lg text-sm font-medium hover:bg-accent-hover transition-colors disabled:opacity-50"
             >
-              {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Settings'}
+              {saving ? 'Speichert…' : saved ? 'Gespeichert!' : 'Einstellungen speichern'}
             </button>
           </div>
         </div>
@@ -283,11 +283,10 @@ export default function AppSettings() {
         <McpSetup mcpPort={config.mcp_port || 3742} />
 
         <div className="mt-10 pt-6 border-t border-border">
-          <h3 className="text-sm font-medium mb-3">About</h3>
+          <h3 className="text-sm font-medium mb-3">Über</h3>
           <div className="space-y-1 text-xs text-text-muted">
             <p><strong className="text-text-primary">Hangar</strong> v1.0.0</p>
-            <p>Local Web Development Environment</p>
-            <p className="text-text-dim">Faster than everything. AI-ready from day one.</p>
+            <p>Hosting-Panel für Windows (basiert auf Hangar, GPLv3)</p>
           </div>
         </div>
       </div>
@@ -320,7 +319,7 @@ function McpSetup({ mcpPort }: McpSetupProps) {
   const configs: Record<typeof tab, { path: string; json: string; reload: string }> = {
     claude: {
       path: '%APPDATA%\\Claude\\claude_desktop_config.json',
-      reload: 'Quit Claude Desktop from the tray, then relaunch.',
+      reload: 'Claude Desktop über das Tray-Symbol beenden und neu starten.',
       json: JSON.stringify(
         { mcpServers: { hangar: { type: 'sse', url } } },
         null,
@@ -329,7 +328,7 @@ function McpSetup({ mcpPort }: McpSetupProps) {
     },
     cursor: {
       path: '%USERPROFILE%\\.cursor\\mcp.json',
-      reload: 'Settings > MCP > toggle Hangar off/on (or restart Cursor).',
+      reload: 'Settings > MCP > Hangar aus- und wieder einschalten (oder Cursor neu starten).',
       json: JSON.stringify(
         { mcpServers: { hangar: { url } } },
         null,
@@ -338,7 +337,7 @@ function McpSetup({ mcpPort }: McpSetupProps) {
     },
     windsurf: {
       path: '%USERPROFILE%\\.codeium\\windsurf\\mcp_config.json',
-      reload: 'Cascade panel > MCP icon > Refresh, or restart Windsurf.',
+      reload: 'Cascade-Panel > MCP-Symbol > Refresh, oder Windsurf neu starten.',
       json: JSON.stringify(
         { mcpServers: { hangar: { serverUrl: url } } },
         null,
@@ -359,11 +358,11 @@ function McpSetup({ mcpPort }: McpSetupProps) {
 
   return (
     <div className="mt-10 pt-6 border-t border-border">
-      <h3 className="text-sm font-medium mb-1">Connect your AI editor</h3>
+      <h3 className="text-sm font-medium mb-1">KI-Editor verbinden</h3>
       <p className="text-xs text-text-muted mb-4">
-        Hangar runs an MCP server at <span className="font-mono text-text-primary">{url}</span>.
-        Pick your editor and copy the config below. Tools available: list/start/stop services,
-        list/create projects, fetch logs, get DB connection strings, and more.
+        Hangar betreibt einen MCP-Server unter <span className="font-mono text-text-primary">{url}</span>.
+        Wähle deinen Editor und kopiere die Konfiguration unten. Verfügbare Werkzeuge: Dienste auflisten/starten/stoppen,
+        Projekte auflisten/anlegen, Logs abrufen, Datenbank-Verbindungen abfragen und mehr.
       </p>
 
       <div className="flex gap-1 border-b border-border mb-4">
@@ -380,7 +379,7 @@ function McpSetup({ mcpPort }: McpSetupProps) {
 
       <div className="space-y-3">
         <div>
-          <p className="text-xs text-text-muted mb-1">Config file path</p>
+          <p className="text-xs text-text-muted mb-1">Pfad der Konfigurationsdatei</p>
           <code className="block px-3 py-2 bg-bg-secondary border border-border rounded text-xs font-mono text-text-primary">
             {c.path}
           </code>
@@ -388,12 +387,12 @@ function McpSetup({ mcpPort }: McpSetupProps) {
 
         <div>
           <div className="flex items-center justify-between mb-1">
-            <p className="text-xs text-text-muted">Paste this in (merge with existing <code className="text-text-primary">mcpServers</code> if you have any)</p>
+            <p className="text-xs text-text-muted">Hier einfügen (mit vorhandenen <code className="text-text-primary">mcpServers</code> zusammenführen, falls es welche gibt)</p>
             <button
               onClick={copyConfig}
               className="px-2 py-0.5 bg-accent/10 border border-accent/30 text-accent rounded text-[11px] hover:bg-accent/20"
             >
-              {copied ? 'Copied!' : 'Copy'}
+              {copied ? 'Kopiert!' : 'Kopieren'}
             </button>
           </div>
           <pre className="px-3 py-2 bg-bg-secondary border border-border rounded text-xs font-mono text-text-primary overflow-x-auto">
@@ -402,14 +401,13 @@ function McpSetup({ mcpPort }: McpSetupProps) {
         </div>
 
         <div>
-          <p className="text-xs text-text-muted mb-1">Apply the change</p>
+          <p className="text-xs text-text-muted mb-1">Änderung übernehmen</p>
           <p className="text-xs text-text-primary">{c.reload}</p>
         </div>
 
         <p className="text-[11px] text-text-dim">
-          The MCP server starts with Hangar (port {mcpPort}). If your editor can't connect,
-          make sure Hangar is running and Windows Firewall didn't block port {mcpPort} on
-          localhost.
+          Der MCP-Server startet mit Hangar (Port {mcpPort}). Wenn dein Editor keine Verbindung bekommt,
+          prüfe, ob Hangar läuft und die Windows-Firewall Port {mcpPort} auf localhost nicht blockiert.
         </p>
       </div>
     </div>

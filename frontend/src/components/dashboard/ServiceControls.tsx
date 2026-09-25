@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Play, Square, RotateCcw, Loader2, Skull } from 'lucide-react'
 import { call, toast, errorMessage } from '../../lib/api'
+import { statusLabel } from '../../lib/i18n'
 
 interface ServiceStatus {
   name: string
@@ -51,13 +52,13 @@ function ErrorPanel({ message, onAfterKill }: { message: string; onAfterKill: ()
   return (
     <div className="bg-status-red/10 border border-status-red/20 rounded-lg p-4 space-y-3">
       <div>
-        <p className="text-xs text-status-red font-medium mb-1">Error</p>
+        <p className="text-xs text-status-red font-medium mb-1">Fehler</p>
         <p className="text-xs text-status-red font-mono whitespace-pre-wrap">{cleanMessage}</p>
       </div>
       {owner && (
         <div className="flex items-center justify-between bg-bg-primary/50 rounded p-2">
           <p className="text-xs text-text-muted">
-            Port <span className="font-mono text-text-primary">{owner.port}</span> is held by{' '}
+            Port <span className="font-mono text-text-primary">{owner.port}</span> ist belegt von{' '}
             <span className="font-mono text-text-primary">{owner.name}</span>{' '}
             <span className="text-text-dim">(PID {owner.pid})</span>
           </p>
@@ -67,7 +68,7 @@ function ErrorPanel({ message, onAfterKill }: { message: string; onAfterKill: ()
             className="flex items-center gap-1.5 px-2.5 py-1 bg-status-red/20 text-status-red border border-status-red/30 rounded text-xs font-medium hover:bg-status-red/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {killing ? <Loader2 size={11} className="animate-spin" /> : <Skull size={11} />}
-            {killing ? 'Killing...' : `Kill ${owner.name} & retry`}
+            {killing ? 'Wird beendet…' : `${owner.name} beenden & erneut versuchen`}
           </button>
         </div>
       )}
@@ -79,11 +80,11 @@ function ErrorPanel({ message, onAfterKill }: { message: string; onAfterKill: ()
 }
 
 const serviceLabels: Record<string, string> = {
-  apache: 'Apache HTTP Server',
-  nginx: 'Nginx Web Server',
-  mysql: 'MySQL Database',
-  postgresql: 'PostgreSQL Database',
-  mailpit: 'Mailpit Mail Server',
+  apache: 'Apache HTTP-Server',
+  nginx: 'Nginx Webserver',
+  mysql: 'MySQL-Datenbank',
+  postgresql: 'PostgreSQL-Datenbank',
+  mailpit: 'Mailpit Mailserver',
 }
 
 export default function ServiceControls({ serviceName, status }: ServiceControlsProps) {
@@ -119,12 +120,12 @@ export default function ServiceControls({ serviceName, status }: ServiceControls
     setActionError('')
     try {
       await call('StartService', serviceName)
-      toast.success(isWebServer ? `${label} is now serving all sites` : `${label} started`)
+      toast.success(isWebServer ? `${label} liefert jetzt alle Seiten aus` : `${label} gestartet`)
     } catch (e) {
       // Surface the Go error message right next to the button so the user
       // doesn't have to dig into the Logs tab to figure out what went wrong.
       setActionError(errorMessage(e))
-      toast.error(`${label} did not start`, errorMessage(e))
+      toast.error(`${label} ist nicht gestartet`, errorMessage(e))
       setLocalPending(null)
     }
   }
@@ -134,10 +135,10 @@ export default function ServiceControls({ serviceName, status }: ServiceControls
     setActionError('')
     try {
       await call('StopService', serviceName)
-      toast.success(`${label} stopped`, isWebServer ? 'All sites are offline until a web server runs again.' : undefined)
+      toast.success(`${label} gestoppt`, isWebServer ? 'Alle Seiten sind offline, bis wieder ein Webserver läuft.' : undefined)
     } catch (e) {
       setActionError(errorMessage(e))
-      toast.error(`Could not stop ${label}`, errorMessage(e))
+      toast.error(`${label} konnte nicht gestoppt werden`, errorMessage(e))
       setLocalPending(null)
     }
   }
@@ -147,10 +148,10 @@ export default function ServiceControls({ serviceName, status }: ServiceControls
     setActionError('')
     try {
       await call('RestartService', serviceName)
-      toast.success(`${label} restarted`)
+      toast.success(`${label} neu gestartet`)
     } catch (e) {
       setActionError(errorMessage(e))
-      toast.error(`Could not restart ${label}`, errorMessage(e))
+      toast.error(`${label} konnte nicht neu gestartet werden`, errorMessage(e))
       setLocalPending(null)
     }
   }
@@ -170,7 +171,7 @@ export default function ServiceControls({ serviceName, status }: ServiceControls
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-medium">{label}</h2>
-        <p className="text-xs text-text-muted mt-1">Service overview and controls</p>
+        <p className="text-xs text-text-muted mt-1">Übersicht und Steuerung des Dienstes</p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -178,9 +179,9 @@ export default function ServiceControls({ serviceName, status }: ServiceControls
           <p className="text-xs text-text-muted mb-1">Status</p>
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${isStarting ? 'bg-status-yellow animate-pulse' : isRunning ? 'bg-status-green' : 'bg-status-red'}`} />
-            <span className="text-sm font-medium capitalize">
+            <span className="text-sm font-medium">
               {isStarting && <Loader2 size={12} className="inline-block mr-1 animate-spin" />}
-              {status?.status || 'Unknown'}
+              {statusLabel(status?.status)}
             </span>
           </div>
         </div>
@@ -189,7 +190,7 @@ export default function ServiceControls({ serviceName, status }: ServiceControls
           <span className="text-sm font-mono">{portDisplay}</span>
         </div>
         <div className="bg-bg-secondary rounded-lg p-4 border border-border">
-          <p className="text-xs text-text-muted mb-1">Uptime</p>
+          <p className="text-xs text-text-muted mb-1">Laufzeit</p>
           <span className="text-sm font-mono">{status?.uptime || '—'}</span>
         </div>
       </div>
@@ -216,8 +217,8 @@ export default function ServiceControls({ serviceName, status }: ServiceControls
           >
             <Loader2 size={14} className="animate-spin" />
             {isInitializing
-              ? 'Initializing first-run data... (30-90s)'
-              : 'Starting...'}
+              ? 'Ersteinrichtung der Daten… (30-90 s)'
+              : 'Startet…'}
           </button>
         ) : isStopping ? (
           <button
@@ -225,7 +226,7 @@ export default function ServiceControls({ serviceName, status }: ServiceControls
             className="flex items-center gap-2 px-4 py-2 bg-status-yellow/10 text-status-yellow border border-status-yellow/20 rounded-lg text-sm font-medium cursor-not-allowed"
           >
             <Loader2 size={14} className="animate-spin" />
-            Stopping...
+            Stoppt…
           </button>
         ) : !isRunning ? (
           <button
@@ -233,7 +234,7 @@ export default function ServiceControls({ serviceName, status }: ServiceControls
             className="flex items-center gap-2 px-4 py-2 bg-accent text-on-accent rounded-lg text-sm font-medium hover:bg-accent-hover transition-colors"
           >
             <Play size={14} />
-            Start
+            Starten
           </button>
         ) : (
           <button
@@ -241,7 +242,7 @@ export default function ServiceControls({ serviceName, status }: ServiceControls
             className="flex items-center gap-2 px-4 py-2 bg-status-red/10 text-status-red border border-status-red/20 rounded-lg text-sm font-medium hover:bg-status-red/20 transition-colors"
           >
             <Square size={14} />
-            Stop
+            Stoppen
           </button>
         )}
         <button
@@ -250,7 +251,7 @@ export default function ServiceControls({ serviceName, status }: ServiceControls
           className="flex items-center gap-2 px-4 py-2 bg-bg-secondary text-text-muted border border-border rounded-lg text-sm font-medium hover:text-text-primary hover:border-text-dim transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
           <RotateCcw size={14} />
-          Restart
+          Neu starten
         </button>
       </div>
     </div>

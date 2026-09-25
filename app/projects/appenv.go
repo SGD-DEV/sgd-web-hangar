@@ -66,13 +66,13 @@ func ValidateApp(a *AppService) error {
 	a.Command = strings.TrimSpace(a.Command)
 	a.BuildCommand = strings.TrimSpace(a.BuildCommand)
 	if a.Command == "" {
-		return fmt.Errorf("a start command is required, e.g. npm start")
+		return fmt.Errorf("ein Startbefehl ist erforderlich, z. B. npm start")
 	}
 	if strings.ContainsAny(a.Command+a.BuildCommand, "\r\n") {
-		return fmt.Errorf("commands must be a single line - chain steps with &&")
+		return fmt.Errorf("Befehle müssen einzeilig sein - mehrere Schritte mit && verketten")
 	}
 	if a.Port < 1024 || a.Port > 65535 {
-		return fmt.Errorf("port must be between 1024 and 65535")
+		return fmt.Errorf("der Port muss zwischen 1024 und 65535 liegen")
 	}
 	var env []string
 	for _, line := range a.Env {
@@ -83,7 +83,7 @@ func ValidateApp(a *AppService) error {
 		k, _, ok := strings.Cut(line, "=")
 		k = strings.TrimSpace(k)
 		if !ok || k == "" || strings.ContainsAny(k, " \t") {
-			return fmt.Errorf("environment line %q must look like KEY=value", line)
+			return fmt.Errorf("die Zeile %q muss wie KEY=Wert aussehen", line)
 		}
 		env = append(env, line)
 	}

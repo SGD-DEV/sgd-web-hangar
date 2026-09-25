@@ -55,7 +55,7 @@ func (a *App) saveProjectConfig(p projects.Project) (projects.Project, []string,
 	// An app gets its database and mail settings as environment variables.
 	if p.App != nil && a.appInstalled(p.Name) {
 		if err := a.applyAppService(p, true); err != nil {
-			return p, files, fmt.Errorf("saved, but updating the app service failed: %w", err)
+			return p, files, fmt.Errorf("gespeichert, aber der App-Dienst konnte nicht aktualisiert werden: %w", err)
 		}
 		files = append(files, "service environment")
 	}
@@ -76,7 +76,7 @@ func (a *App) CreateProjectDatabase(name, dbType string) (ProjectSetupResult, er
 		return ProjectSetupResult{}, err
 	}
 	if p.IsWordPress() && dbType != "mysql" {
-		return ProjectSetupResult{}, fmt.Errorf("WordPress only runs on MySQL")
+		return ProjectSetupResult{}, fmt.Errorf("WordPress läuft nur mit MySQL")
 	}
 	dbName := projectDBName(name)
 	creds, err := a.CreateDatabase(dbType, dbName, dbName, "")
@@ -102,10 +102,10 @@ func (a *App) SetProjectDatabase(name string, db *projects.Database) (ProjectSet
 		return ProjectSetupResult{Project: p}, err
 	}
 	if db.Type != "mysql" && db.Type != "postgresql" {
-		return ProjectSetupResult{}, fmt.Errorf("unknown database type %q", db.Type)
+		return ProjectSetupResult{}, fmt.Errorf("unbekannter Datenbanktyp %q", db.Type)
 	}
 	if strings.TrimSpace(db.Name) == "" || strings.TrimSpace(db.User) == "" {
-		return ProjectSetupResult{}, fmt.Errorf("database name and user are required")
+		return ProjectSetupResult{}, fmt.Errorf("Datenbankname und Benutzer sind Pflichtfelder")
 	}
 	if db.Host == "" {
 		db.Host = "127.0.0.1"
@@ -143,21 +143,21 @@ func validateMail(m *projects.Mail) error {
 	m.FromEmail = strings.TrimSpace(m.FromEmail)
 	m.FromName = strings.TrimSpace(m.FromName)
 	if m.Host == "" {
-		return fmt.Errorf("SMTP host is required")
+		return fmt.Errorf("der SMTP-Host ist ein Pflichtfeld")
 	}
 	if m.Port < 1 || m.Port > 65535 {
-		return fmt.Errorf("SMTP port must be between 1 and 65535")
+		return fmt.Errorf("der SMTP-Port muss zwischen 1 und 65535 liegen")
 	}
 	if m.Encryption != "" && m.Encryption != "tls" && m.Encryption != "ssl" {
-		return fmt.Errorf("unknown encryption %q", m.Encryption)
+		return fmt.Errorf("unbekannte Verschlüsselung %q", m.Encryption)
 	}
 	if m.FromEmail != "" {
 		if _, err := mail.ParseAddress(m.FromEmail); err != nil {
-			return fmt.Errorf("sender address: %v", err)
+			return fmt.Errorf("Absenderadresse: %v", err)
 		}
 	}
 	if strings.ContainsAny(m.FromName+m.Host+m.User, "\r\n") {
-		return fmt.Errorf("line breaks are not allowed")
+		return fmt.Errorf("Zeilenumbrüche sind nicht erlaubt")
 	}
 	return nil
 }
@@ -171,7 +171,7 @@ func (a *App) SendProjectTestMail(name, to string) error {
 	}
 	rcpt, err := mail.ParseAddress(strings.TrimSpace(to))
 	if err != nil {
-		return fmt.Errorf("recipient: %v", err)
+		return fmt.Errorf("Empfänger: %v", err)
 	}
 	m := p.EffectiveMail()
 	from := m.FromEmail
@@ -208,7 +208,7 @@ func sendSMTP(m projects.Mail, from, to string, msg []byte) error {
 		conn, err = dialer.Dial("tcp", addr)
 	}
 	if err != nil {
-		return fmt.Errorf("connecting to %s: %w", addr, err)
+		return fmt.Errorf("Verbindung zu %s fehlgeschlagen: %w", addr, err)
 	}
 	_ = conn.SetDeadline(time.Now().Add(45 * time.Second))
 	c, err := smtp.NewClient(conn, m.Host)
@@ -226,14 +226,14 @@ func sendSMTP(m projects.Mail, from, to string, msg []byte) error {
 		// PlainAuth refuses to send the password over an unencrypted
 		// connection to anything but localhost.
 		if err := c.Auth(smtp.PlainAuth("", m.User, m.Password, m.Host)); err != nil {
-			return fmt.Errorf("login: %w", err)
+			return fmt.Errorf("Anmeldung fehlgeschlagen: %w", err)
 		}
 	}
 	if err := c.Mail(from); err != nil {
-		return fmt.Errorf("sender rejected: %w", err)
+		return fmt.Errorf("Absender abgelehnt: %w", err)
 	}
 	if err := c.Rcpt(to); err != nil {
-		return fmt.Errorf("recipient rejected: %w", err)
+		return fmt.Errorf("Empfänger abgelehnt: %w", err)
 	}
 	w, err := c.Data()
 	if err != nil {
@@ -267,13 +267,13 @@ func (a *App) installWordPress(name, projectPath string) (string, error) {
 
 	archive := filepath.Join(tmp, "wordpress.zip")
 	if err := downloadFile(wordPressGermanURL, archive); err != nil {
-		return "", fmt.Errorf("downloading WordPress: %w", err)
+		return "", fmt.Errorf("WordPress-Download fehlgeschlagen: %w", err)
 	}
 	if err := downloader.ExtractZip(archive, tmp); err != nil {
-		return "", fmt.Errorf("extracting WordPress: %w", err)
+		return "", fmt.Errorf("WordPress konnte nicht entpackt werden: %w", err)
 	}
 	if err := os.Rename(filepath.Join(tmp, "wordpress"), projectPath); err != nil {
-		return "", fmt.Errorf("moving WordPress into place: %w", err)
+		return "", fmt.Errorf("WordPress konnte nicht an seinen Platz verschoben werden: %w", err)
 	}
 
 	p, err := a.projectManager.CreateWithOptions(projects.CreateOptions{Name: name, Path: projectPath, Framework: string(projects.FrameworkWordPress)})
@@ -342,10 +342,10 @@ type CloneOptions struct {
 func validateGitURL(raw string) (*url.URL, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u.Scheme != "https" || u.Host == "" || strings.Trim(u.Path, "/") == "" {
-		return nil, fmt.Errorf("only https:// repository URLs are supported, e.g. https://github.com/user/repo.git")
+		return nil, fmt.Errorf("nur https://-Adressen werden unterstützt, z. B. https://github.com/user/repo.git")
 	}
 	if u.User != nil {
-		return nil, fmt.Errorf("don't put credentials in the URL - Git asks for them when needed and stores them in Windows")
+		return nil, fmt.Errorf("bitte keine Zugangsdaten in die URL schreiben - Git fragt bei Bedarf danach und speichert sie in Windows")
 	}
 	return u, nil
 }
@@ -376,17 +376,17 @@ func (a *App) CloneProject(opts CloneOptions) (projects.Project, error) {
 		name = ProjectNameFromGitURL(opts.URL)
 	}
 	if !validProjectName.MatchString(name) {
-		return projects.Project{}, fmt.Errorf("project name may contain lowercase letters, digits and -")
+		return projects.Project{}, fmt.Errorf("der Projektname darf nur Kleinbuchstaben, Ziffern und - enthalten")
 	}
 	if _, err := a.projectManager.Get(name); err == nil {
-		return projects.Project{}, fmt.Errorf("a project named %s already exists", name)
+		return projects.Project{}, fmt.Errorf("ein Projekt namens %s existiert bereits", name)
 	}
 	path := strings.TrimSpace(opts.Path)
 	if path == "" {
 		path = filepath.Join(a.GetProjectsRoot(), name)
 	}
 	if entries, err := os.ReadDir(path); err == nil && len(entries) > 0 {
-		return projects.Project{}, fmt.Errorf("folder %s already exists and is not empty", path)
+		return projects.Project{}, fmt.Errorf("der Ordner %s existiert bereits und ist nicht leer", path)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
@@ -396,7 +396,7 @@ func (a *App) CloneProject(opts CloneOptions) (projects.Project, error) {
 	services.HideWindow(cmd)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		os.RemoveAll(path)
-		return projects.Project{}, fmt.Errorf("git clone failed: %s", gitErrorText(out, err))
+		return projects.Project{}, fmt.Errorf("git clone fehlgeschlagen: %s", gitErrorText(out, err))
 	}
 	excludeSecretFiles(path)
 

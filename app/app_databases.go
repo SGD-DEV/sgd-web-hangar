@@ -60,7 +60,7 @@ func (a *App) requireRunning(dbType string) error {
 		return err
 	}
 	if st.Status != services.StatusRunning {
-		return fmt.Errorf("%s is not running - start it on the Servers page first", dbType)
+		return fmt.Errorf("%s läuft nicht - starte es zuerst auf der Seite Server", dbType)
 	}
 	return nil
 }
@@ -90,19 +90,19 @@ func sqlString(s string) string {
 func (a *App) CreateDatabase(dbType, name, user, password string) (DatabaseCredentials, error) {
 	dbType = strings.ToLower(dbType)
 	if dbType != "mysql" && dbType != "postgresql" {
-		return DatabaseCredentials{}, fmt.Errorf("unknown database type %q", dbType)
+		return DatabaseCredentials{}, fmt.Errorf("unbekannter Datenbanktyp %q", dbType)
 	}
 	if !validDBIdent.MatchString(name) {
-		return DatabaseCredentials{}, fmt.Errorf("database name may contain letters, digits and _ (max 63, not starting with a digit)")
+		return DatabaseCredentials{}, fmt.Errorf("der Datenbankname darf Buchstaben, Ziffern und _ enthalten (max. 63, nicht mit einer Ziffer beginnend)")
 	}
 	if systemDatabases[strings.ToLower(name)] {
-		return DatabaseCredentials{}, fmt.Errorf("%q is a reserved system database", name)
+		return DatabaseCredentials{}, fmt.Errorf("%q ist eine reservierte Systemdatenbank", name)
 	}
 	if user == "" {
 		user = name
 	}
 	if !validDBIdent.MatchString(user) || user == "root" || user == "postgres" {
-		return DatabaseCredentials{}, fmt.Errorf("invalid user name %q", user)
+		return DatabaseCredentials{}, fmt.Errorf("ungültiger Benutzername %q", user)
 	}
 	if password == "" {
 		password = randomPassword()
@@ -148,14 +148,14 @@ func (a *App) CreateDatabase(dbType, name, user, password string) (DatabaseCrede
 func (a *App) DropDatabase(dbType, name string) (string, error) {
 	dbType = strings.ToLower(dbType)
 	if !validDBIdent.MatchString(name) || systemDatabases[strings.ToLower(name)] {
-		return "", fmt.Errorf("refusing to drop %q", name)
+		return "", fmt.Errorf("%q wird nicht gelöscht (Systemdatenbank oder ungültiger Name)", name)
 	}
 	if err := a.requireRunning(dbType); err != nil {
 		return "", err
 	}
 	backup, err := a.BackupDatabase(dbType, name)
 	if err != nil {
-		return "", fmt.Errorf("backup before drop failed, nothing was deleted: %w", err)
+		return "", fmt.Errorf("Backup vor dem Löschen fehlgeschlagen, es wurde nichts gelöscht: %w", err)
 	}
 	var sql string
 	switch dbType {
@@ -164,13 +164,13 @@ func (a *App) DropDatabase(dbType, name string) (string, error) {
 	case "postgresql":
 		sql = fmt.Sprintf(`DROP DATABASE "%s" WITH (FORCE)`, name)
 	default:
-		return "", fmt.Errorf("unknown database type %q", dbType)
+		return "", fmt.Errorf("unbekannter Datenbanktyp %q", dbType)
 	}
 	if err := a.execSQL(dbType, "", sql); err != nil {
 		return backup, err
 	}
 	if err := a.dropOwnUser(dbType, name); err != nil {
-		return backup, fmt.Errorf("database deleted, but removing user %s failed: %w", name, err)
+		return backup, fmt.Errorf("Datenbank gelöscht, aber der Benutzer %s konnte nicht entfernt werden: %w", name, err)
 	}
 	return backup, nil
 }
@@ -240,7 +240,7 @@ func (a *App) BackupDatabase(dbType, name string) (string, error) {
 	case "mysql":
 		exe := a.findDBBinary("mysql", "mysqldump.exe")
 		if exe == "" {
-			return "", fmt.Errorf("mysqldump.exe not found")
+			return "", fmt.Errorf("mysqldump.exe nicht gefunden")
 		}
 		cmd = exec.Command(exe, "-h", "127.0.0.1", "-P", port, "-u", "root",
 			"--single-transaction", "--routines", "--triggers", "--events",
@@ -248,12 +248,12 @@ func (a *App) BackupDatabase(dbType, name string) (string, error) {
 	case "postgresql":
 		exe := a.findDBBinary("postgresql", "pg_dump.exe")
 		if exe == "" {
-			return "", fmt.Errorf("pg_dump.exe not found")
+			return "", fmt.Errorf("pg_dump.exe nicht gefunden")
 		}
 		cmd = exec.Command(exe, "-h", "127.0.0.1", "-p", port, "-U", "postgres",
 			"--clean", "--if-exists", "--no-owner", "-f", out, name)
 	default:
-		return "", fmt.Errorf("unknown database type %q", dbType)
+		return "", fmt.Errorf("unbekannter Datenbanktyp %q", dbType)
 	}
 	services.HideWindow(cmd)
 	if output, err := cmd.CombinedOutput(); err != nil {
@@ -380,7 +380,7 @@ func (a *App) OpenAdminer() (string, error) {
 	app := filepath.Join(dir, "adminer.php")
 	if _, err := os.Stat(app); err != nil {
 		if err := downloadFile("https://github.com/vrana/adminer/releases/download/v5.4.2/adminer-5.4.2.php", app); err != nil {
-			return "", fmt.Errorf("downloading Adminer: %w", err)
+			return "", fmt.Errorf("Adminer-Download fehlgeschlagen: %w", err)
 		}
 	}
 	index := `<?php
@@ -436,7 +436,7 @@ func (a *App) OpenPgAdmin() error {
 		}
 	}
 	if exe == "" {
-		return fmt.Errorf("pgAdmin 4 not found - it ships with the PostgreSQL package")
+		return fmt.Errorf("pgAdmin 4 nicht gefunden - es wird mit dem PostgreSQL-Paket geliefert")
 	}
 	cmd := exec.Command(exe)
 	cmd.Dir = filepath.Dir(exe)

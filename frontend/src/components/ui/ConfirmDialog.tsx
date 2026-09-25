@@ -43,7 +43,7 @@ export default function ConfirmDialog() {
           </div>
         </div>
         <div className="flex justify-end gap-2 px-5 py-3 border-t border-border">
-          <Button onClick={() => close(false)}>Cancel</Button>
+          <Button onClick={() => close(false)}>Abbrechen</Button>
           <Button variant={current.danger ? 'danger' : 'primary'} onClick={() => close(true)}>
             {current.confirmLabel || 'OK'}
           </Button>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Check, Download, Loader2, AlertCircle, Zap } from 'lucide-react'
+import { statusLabel } from '../../lib/i18n'
 
 interface BundleItem {
   name: string
@@ -91,7 +92,7 @@ export default function WelcomeWizard({ onComplete }: WelcomeWizardProps) {
   async function handleInstall() {
     const items = bundle.filter(b => selected[key(b)])
     if (items.length === 0) {
-      setError('Select at least one package to install.')
+      setError('Wähle mindestens ein Paket zum Installieren.')
       return
     }
     setPhase('installing')
@@ -130,11 +131,11 @@ export default function WelcomeWizard({ onComplete }: WelcomeWizardProps) {
       <div className="w-full max-w-2xl bg-bg-secondary border border-border rounded-lg shadow-2xl p-8">
         <div className="flex items-center gap-3 mb-2">
           <Zap className="text-accent" size={28} />
-          <h1 className="text-2xl font-semibold text-text-primary">Welcome to Hangar</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">Willkommen bei Hangar</h1>
         </div>
         <p className="text-text-muted mb-6">
-          Hangar ships lightweight. On first launch we&apos;ll download the services you actually want.
-          Pick your defaults — you can install more from the Packages page later.
+          Hangar kommt schlank daher. Beim ersten Start laden wir nur die Dienste herunter, die du wirklich willst.
+          Wähle deine Grundausstattung - weitere Pakete kannst du später auf der Seite Pakete installieren.
         </p>
 
         {phase === 'choose' && (
@@ -155,7 +156,7 @@ export default function WelcomeWizard({ onComplete }: WelcomeWizardProps) {
                   <div className="flex-1">
                     <div className="text-text-primary font-medium">{item.label}</div>
                     <div className="text-xs text-text-muted">
-                      {item.required ? 'Recommended' : 'Optional'}
+                      {item.required ? 'Empfohlen' : 'Optional'}
                     </div>
                   </div>
                 </label>
@@ -173,13 +174,13 @@ export default function WelcomeWizard({ onComplete }: WelcomeWizardProps) {
                 onClick={handleSkip}
                 className="px-4 py-2 text-text-muted hover:text-text-primary transition-colors"
               >
-                Skip for now
+                Erst mal überspringen
               </button>
               <button
                 onClick={handleInstall}
                 className="px-6 py-2 bg-accent text-on-accent rounded font-medium hover:bg-accent/90 transition-colors flex items-center gap-2"
               >
-                <Download size={16} /> Install Defaults
+                <Download size={16} /> Auswahl installieren
               </button>
             </div>
           </>
@@ -189,7 +190,7 @@ export default function WelcomeWizard({ onComplete }: WelcomeWizardProps) {
           <>
             <div className="mb-6">
               <div className="flex justify-between text-xs text-text-muted mb-2">
-                <span>Overall progress</span>
+                <span>Gesamtfortschritt</span>
                 <span>{totalPct}%</span>
               </div>
               <div className="h-2 bg-bg-primary rounded overflow-hidden">
@@ -220,7 +221,7 @@ export default function WelcomeWizard({ onComplete }: WelcomeWizardProps) {
                         )}
                         <span>{item.label}</span>
                       </div>
-                      <span className="text-xs text-text-muted">{status}</span>
+                      <span className="text-xs text-text-muted">{statusLabel(status)}</span>
                     </div>
                     {(status === 'downloading' || status === 'extracting' || status === 'verifying') && (
                       <>
@@ -238,7 +239,7 @@ export default function WelcomeWizard({ onComplete }: WelcomeWizardProps) {
                             </span>
                             <span>
                               {s?.speed_mbps && s.speed_mbps > 0 ? s.speed_mbps.toFixed(1) + ' MB/s' : ''}
-                              {s?.eta_seconds && s.eta_seconds > 0 ? ' · ETA ' + formatETA(s.eta_seconds) : ''}
+                              {s?.eta_seconds && s.eta_seconds > 0 ? ' · noch ' + formatETA(s.eta_seconds) : ''}
                             </span>
                           </div>
                         )}
@@ -260,14 +261,14 @@ export default function WelcomeWizard({ onComplete }: WelcomeWizardProps) {
                 onClick={handleFinish}
                 className="px-4 py-2 text-text-muted hover:text-text-primary transition-colors text-sm"
               >
-                {phase === 'done' ? 'Skip remaining' : 'Skip and continue to app'}
+                {phase === 'done' ? 'Rest überspringen' : 'Überspringen und zur App'}
               </button>
               {phase === 'done' && (
                 <button
                   onClick={handleFinish}
                   className="px-6 py-2 bg-accent text-on-accent rounded font-medium hover:bg-accent/90 transition-colors"
                 >
-                  Get Started
+                  Los geht's
                 </button>
               )}
             </div>
