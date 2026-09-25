@@ -251,7 +251,7 @@ export default function PHPVersionList({ onNavigate }: PHPVersionListProps) {
                         <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 transition-colors
                           ${ext.enabled ? 'bg-accent border-accent' : 'border-text-dim bg-transparent'}`}
                         >
-                          {ext.enabled && <Check size={10} className="text-bg-primary" />}
+                          {ext.enabled && <Check size={10} className="text-on-accent" />}
                         </div>
                         <span className={`text-xs font-mono truncate ${ext.enabled ? 'text-text-primary' : 'text-text-muted'}`}>
                           {ext.name}
@@ -278,7 +278,7 @@ export default function PHPVersionList({ onNavigate }: PHPVersionListProps) {
                     <button
                       onClick={handleSaveIni}
                       disabled={iniSaving}
-                      className="px-3 py-1.5 bg-accent text-bg-primary rounded-lg text-xs font-medium hover:bg-accent-hover transition-colors disabled:opacity-40"
+                      className="px-3 py-1.5 bg-accent text-on-accent rounded-lg text-xs font-medium hover:bg-accent-hover transition-colors disabled:opacity-40"
                     >
                       {iniSaving ? 'Saving...' : iniSaved ? 'Saved!' : 'Save'}
                     </button>

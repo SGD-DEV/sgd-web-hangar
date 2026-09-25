@@ -7,7 +7,7 @@ import { Loader2, X } from 'lucide-react'
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost'
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-accent text-bg-primary hover:bg-accent-hover font-medium',
+  primary: 'bg-accent text-on-accent hover:bg-accent-hover font-medium',
   secondary: 'bg-bg-secondary border border-border text-text-muted hover:text-text-primary hover:border-text-dim',
   danger: 'bg-status-red/10 text-status-red border border-status-red/20 hover:bg-status-red/20',
   ghost: 'text-text-dim hover:text-text-primary',

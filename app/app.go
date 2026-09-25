@@ -121,6 +121,7 @@ func (a *App) Startup(ctx context.Context) {
 	// php.ini is GUI-specific - it depends on Wails being live to push
 	// events, and CLI/daemon don't need it pre-warmed for short runs.
 	a.ensurePHPIni()
+	a.initAppearance()
 
 	// Bring back the services that were running before the last shutdown
 	// or reboot, then keep an eye on them.

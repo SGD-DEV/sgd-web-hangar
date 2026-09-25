@@ -11,9 +11,13 @@ export default {
         'bg-primary': '#0f1010',
         'bg-secondary': '#1a1c1a',
         'bg-sidebar': '#111211',
-        'bg-selected': '#1e2a1e',
-        accent: '#b5f23d',
-        'accent-hover': '#c8ff4a',
+        // Accent colours come from CSS variables (RGB triplets) so the
+        // Appearance settings can change them at runtime; <alpha-value>
+        // keeps modifiers like bg-accent/10 working.
+        'bg-selected': 'rgb(var(--bg-selected) / <alpha-value>)',
+        accent: 'rgb(var(--accent) / <alpha-value>)',
+        'accent-hover': 'rgb(var(--accent-hover) / <alpha-value>)',
+        'on-accent': 'rgb(var(--on-accent) / <alpha-value>)',
         'text-primary': '#e8e8e6',
         'text-muted': '#6b7068',
         'text-dim': '#3d4039',

@@ -229,7 +229,7 @@ export default function PackageManager() {
           </div>
           <button
             onClick={() => setShowAddCustom(s => !s)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-accent text-bg-primary rounded-lg text-xs font-medium hover:bg-accent-hover transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 bg-accent text-on-accent rounded-lg text-xs font-medium hover:bg-accent-hover transition-colors"
             title="Add a package by URL (e.g. a new PHP release)"
           >
             <Plus size={12} />
@@ -328,7 +328,7 @@ export default function PackageManager() {
                     {pkg.status === 'available' && (
                       <button
                         onClick={() => handleInstall(pkg.name, pkg.version)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-bg-primary rounded-lg text-xs font-medium hover:bg-accent-hover transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-on-accent rounded-lg text-xs font-medium hover:bg-accent-hover transition-colors"
                       >
                         <Download size={12} />
                         Install
@@ -581,7 +581,7 @@ function CustomPackageForm({ onClose, onAdded }: { onClose: () => void; onAdded:
         <button
           onClick={handleSave}
           disabled={submitting}
-          className="flex items-center gap-1.5 px-4 py-1.5 bg-accent text-bg-primary rounded text-xs font-medium hover:bg-accent-hover transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-4 py-1.5 bg-accent text-on-accent rounded text-xs font-medium hover:bg-accent-hover transition-colors disabled:opacity-50"
         >
           {submitting ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
           {submitting ? 'Adding...' : 'Add Package'}

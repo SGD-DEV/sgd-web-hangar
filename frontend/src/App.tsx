@@ -10,6 +10,8 @@ import SSLManager from './components/ssl/SSLManager'
 import LogViewer from './components/services/LogViewer'
 import ConfigEditor from './components/services/ConfigEditor'
 import AppSettings from './components/settings/AppSettings'
+import AppearancePage from './components/settings/AppearancePage'
+import { useAppearance } from './lib/theme'
 import PackageManager from './components/packages/PackageManager'
 import InstalledPage from './components/installed/InstalledPage'
 import DevourTerminal from './components/terminal/Terminal'
@@ -21,7 +23,7 @@ import WebServerSwitch from './components/dashboard/WebServerSwitch'
 import Toaster from './components/ui/Toaster'
 import ConfirmDialog from './components/ui/ConfirmDialog'
 
-export type NavItem = 'servers' | 'packages' | 'installed' | 'php' | 'projects' | 'tunnel' | 'ssl' | 'databases' | 'terminal' | 'syspath' | 'settings'
+export type NavItem = 'servers' | 'packages' | 'installed' | 'php' | 'projects' | 'tunnel' | 'ssl' | 'databases' | 'terminal' | 'syspath' | 'appearance' | 'settings'
 export type DetailTab = 'overview' | 'config' | 'logs'
 
 interface ServiceStatus {
@@ -59,6 +61,8 @@ function App() {
       })
       .catch(() => setFirstRunChecked(true))
   }, [])
+
+  useEffect(() => { useAppearance.getState().load() }, [])
 
   useEffect(() => {
     loadServices()
@@ -165,6 +169,8 @@ function App() {
       case 'syspath':
         return <SystemPathManager />
 
+      case 'appearance':
+        return <AppearancePage />
       case 'settings':
         return <AppSettings />
 

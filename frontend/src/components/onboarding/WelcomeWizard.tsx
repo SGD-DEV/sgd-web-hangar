@@ -177,7 +177,7 @@ export default function WelcomeWizard({ onComplete }: WelcomeWizardProps) {
               </button>
               <button
                 onClick={handleInstall}
-                className="px-6 py-2 bg-accent text-bg-primary rounded font-medium hover:bg-accent/90 transition-colors flex items-center gap-2"
+                className="px-6 py-2 bg-accent text-on-accent rounded font-medium hover:bg-accent/90 transition-colors flex items-center gap-2"
               >
                 <Download size={16} /> Install Defaults
               </button>
@@ -265,7 +265,7 @@ export default function WelcomeWizard({ onComplete }: WelcomeWizardProps) {
               {phase === 'done' && (
                 <button
                   onClick={handleFinish}
-                  className="px-6 py-2 bg-accent text-bg-primary rounded font-medium hover:bg-accent/90 transition-colors"
+                  className="px-6 py-2 bg-accent text-on-accent rounded font-medium hover:bg-accent/90 transition-colors"
                 >
                   Get Started
                 </button>

@@ -112,7 +112,7 @@ export default function ConfigEditor({ serviceName }: ConfigEditorProps) {
           <button
             onClick={handleSave}
             disabled={saving || !selectedFile || !content}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-bg-primary rounded-lg text-xs font-medium hover:bg-accent-hover transition-colors disabled:opacity-40"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-on-accent rounded-lg text-xs font-medium hover:bg-accent-hover transition-colors disabled:opacity-40"
           >
             <Save size={12} />
             {saving ? 'Saving...' : saved ? 'Saved!' : 'Save'}

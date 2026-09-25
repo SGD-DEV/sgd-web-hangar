@@ -41,7 +41,7 @@ html, body, #root {
 }
 
 ::selection {
-  background-color: rgba(181, 242, 61, 0.2);
+  background-color: rgb(var(--accent) / 0.2);
   color: var(--text-primary);
 }
 

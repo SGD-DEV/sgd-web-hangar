@@ -230,7 +230,7 @@ export default function ServiceControls({ serviceName, status }: ServiceControls
         ) : !isRunning ? (
           <button
             onClick={handleStart}
-            className="flex items-center gap-2 px-4 py-2 bg-accent text-bg-primary rounded-lg text-sm font-medium hover:bg-accent-hover transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-accent text-on-accent rounded-lg text-sm font-medium hover:bg-accent-hover transition-colors"
           >
             <Play size={14} />
             Start

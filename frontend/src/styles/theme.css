@@ -2,9 +2,11 @@
   --bg-primary: #0f1010;
   --bg-secondary: #1a1c1a;
   --bg-sidebar: #111211;
-  --bg-selected: #1e2a1e;
-  --accent: #b5f23d;
-  --accent-hover: #c8ff4a;
+  /* RGB triplets, set at runtime from the Appearance settings (lib/theme.ts). */
+  --bg-selected: 30 42 30;
+  --accent: 181 242 61;
+  --accent-hover: 200 255 74;
+  --on-accent: 15 16 16;
   --text-primary: #e8e8e6;
   --text-muted: #6b7068;
   --text-dim: #3d4039;
@@ -29,7 +31,7 @@
 }
 
 .animate-progress {
-  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-hover) 50%, var(--accent) 100%);
+  background: linear-gradient(90deg, rgb(var(--accent)) 0%, rgb(var(--accent-hover)) 50%, rgb(var(--accent)) 100%);
   background-size: 200% 100%;
   animation: progress-bar 1.5s ease infinite;
 }

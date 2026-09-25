@@ -205,7 +205,7 @@ export default function SystemPathManager() {
             <button
               onClick={handleAdd}
               disabled={!newPath.trim()}
-              className="px-3 py-2 bg-accent text-bg-primary rounded text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-40 flex items-center gap-1.5"
+              className="px-3 py-2 bg-accent text-on-accent rounded text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-40 flex items-center gap-1.5"
             >
               <Plus size={14} /> Add
             </button>

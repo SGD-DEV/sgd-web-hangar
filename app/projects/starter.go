@@ -14,12 +14,17 @@ func WriteStarterPage(dir, name, domain string) error {
 	if _, err := os.Stat(target); err == nil {
 		return nil
 	}
-	page := strings.NewReplacer(
+	return os.WriteFile(target, []byte(StarterPage(name, domain, dir)), 0644)
+}
+
+// StarterPage renders the start page. The app replaces it with the
+// template from the Appearance settings.
+var StarterPage = func(name, domain, dir string) string {
+	return strings.NewReplacer(
 		"{{NAME}}", html.EscapeString(name),
 		"{{DOMAIN}}", html.EscapeString(domain),
 		"{{DIR}}", html.EscapeString(dir),
 	).Replace(starterPage)
-	return os.WriteFile(target, []byte(page), 0644)
 }
 
 func isDirNonEmpty(dir string) bool {

@@ -269,7 +269,7 @@ export default function AppSettings() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 bg-accent text-bg-primary rounded-lg text-sm font-medium hover:bg-accent-hover transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-accent text-on-accent rounded-lg text-sm font-medium hover:bg-accent-hover transition-colors disabled:opacity-50"
             >
               {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Settings'}
             </button>
