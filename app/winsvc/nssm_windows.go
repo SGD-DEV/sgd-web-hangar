@@ -34,6 +34,10 @@ func WriteNSSMParams(service string, p NSSMParams) error {
 			return fmt.Errorf("writing %s: %w", name, err)
 		}
 	}
+	// See InstallAppService: online log rotation can hang the service stop.
+	if err := k.SetDWordValue("AppRotateOnline", 0); err != nil {
+		return fmt.Errorf("writing AppRotateOnline: %w", err)
+	}
 	if len(p.Environment) == 0 {
 		if err := k.DeleteValue("AppEnvironmentExtra"); err != nil && err != registry.ErrNotExist {
 			return err

@@ -127,6 +127,12 @@ func (a *App) SaveProjectApp(name, folder string, cfg projects.AppService) (proj
 
 // applyAppService writes command, folder and environment into the
 // service's settings and (re)starts it when restart is set.
+// appCmdParams builds cmd.exe's arguments for a start command: /d skips
+// AutoRun, /s /c "..." runs the line as typed.
+func appCmdParams(command string) string {
+	return `/d /s /c "` + command + `"`
+}
+
 func (a *App) applyAppService(p projects.Project, restart bool) error {
 	if p.App == nil {
 		return fmt.Errorf("project %s has no app settings", p.Name)
@@ -134,8 +140,7 @@ func (a *App) applyAppService(p projects.Project, restart bool) error {
 	cmdExe := filepath.Join(os.Getenv("SystemRoot"), "System32", "cmd.exe")
 	err := winsvc.WriteNSSMParams(appServiceName(p.Name), winsvc.NSSMParams{
 		Application: cmdExe,
-		// /d: no AutoRun, /s /c "...": run the line exactly as typed.
-		Parameters:  `/d /s /c "` + p.App.Command + `"`,
+		Parameters:  appCmdParams(p.App.Command),
 		Directory:   p.Path,
 		Environment: projects.AppEnvironment(p),
 	})
@@ -183,8 +188,10 @@ func (a *App) InstallAppService(name string) error {
 		"& $nssm set $name ObjectName " + q(appServiceAccount) + " '\"\"' | Out-Null",
 		"& $nssm set $name AppStdout " + q(logPath) + " | Out-Null",
 		"& $nssm set $name AppStderr " + q(logPath) + " | Out-Null",
+		// Rotate at service start only. Online rotation (AppRotateOnline) pipes
+		// the output through an NSSM thread that can keep the service stuck in
+		// "stopping" forever; WriteNSSMParams turns it off for older installs.
 		"& $nssm set $name AppRotateFiles 1 | Out-Null",
-		"& $nssm set $name AppRotateOnline 1 | Out-Null",
 		"& $nssm set $name AppRotateBytes 10485760 | Out-Null",
 		// Restart after a crash, but give up flapping quickly enough to see it.
 		"& $nssm set $name AppThrottle 5000 | Out-Null",

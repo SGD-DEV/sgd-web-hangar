@@ -1164,7 +1164,7 @@ func (a *App) RunTerminalCommand(command string) map[string]string {
 
 	cmd := exec.Command("cmd.exe")
 	cmd.Env = a.buildEnv()
-	cmd.Dir = a.paths.ProjectsPath()
+	cmd.Dir = a.GetProjectsRoot()
 	services.HideWindow(cmd)
 	// Set CmdLine after HideWindow so we preserve HideWindow flags
 	// but bypass Go's automatic argument quoting for proper quote handling
@@ -1300,8 +1300,12 @@ func (a *App) CreateProjectWithFramework(framework, name, version string) map[st
 		return result
 	}
 	name = strings.ToLower(strings.ReplaceAll(name, " ", "-"))
+	if !validProjectName.MatchString(name) {
+		result["error"] = "Project name may only contain lowercase letters, digits and - (set the domain separately)"
+		return result
+	}
 
-	projectsRoot := a.paths.ProjectsPath()
+	projectsRoot := a.GetProjectsRoot()
 	projectPath := filepath.Join(projectsRoot, name)
 
 	// Check if project already exists
@@ -1434,7 +1438,7 @@ phpinfo();
 // GetTerminalEnvInfo returns info about available tools in the terminal PATH
 func (a *App) GetTerminalEnvInfo() map[string]string {
 	info := map[string]string{
-		"cwd": a.paths.ProjectsPath(),
+		"cwd": a.GetProjectsRoot(),
 	}
 	if a.phpManager != nil {
 		info["php"] = a.phpManager.ActiveVersion()
@@ -1452,7 +1456,7 @@ func (a *App) GetTerminalEnvInfo() map[string]string {
 // means default to the projects root.
 func (a *App) OpenExternalTerminal(cwd string) error {
 	if cwd == "" {
-		cwd = a.paths.ProjectsPath()
+		cwd = a.GetProjectsRoot()
 	}
 
 	// Resolve the PATH-augmented environment so wt.exe/cmd.exe inherit

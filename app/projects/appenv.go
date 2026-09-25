@@ -14,6 +14,7 @@ func AppEnvironment(p Project) []string {
 	env := map[string]string{
 		"HOST":             "127.0.0.1",
 		"PYTHONUNBUFFERED": "1", // print() shows up in the log right away
+		"PYTHONUTF8":       "1", // UTF-8 log output instead of the ANSI code page
 	}
 	if p.App != nil {
 		env["PORT"] = strconv.Itoa(p.App.Port)
@@ -49,6 +50,11 @@ func AppEnvironment(p Project) []string {
 	}
 	out := make([]string, 0, len(env))
 	for k, v := range env {
+		// NSSM drops the whole AppEnvironmentExtra list when one entry
+		// has an empty value, so the app would get no PORT at all.
+		if v == "" {
+			continue
+		}
 		out = append(out, k+"="+v)
 	}
 	sort.Strings(out)

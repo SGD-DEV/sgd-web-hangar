@@ -383,7 +383,7 @@ func (a *App) CloneProject(opts CloneOptions) (projects.Project, error) {
 	}
 	path := strings.TrimSpace(opts.Path)
 	if path == "" {
-		path = filepath.Join(a.paths.ProjectsPath(), name)
+		path = filepath.Join(a.GetProjectsRoot(), name)
 	}
 	if entries, err := os.ReadDir(path); err == nil && len(entries) > 0 {
 		return projects.Project{}, fmt.Errorf("folder %s already exists and is not empty", path)

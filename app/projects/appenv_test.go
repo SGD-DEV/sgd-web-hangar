@@ -26,6 +26,9 @@ func TestAppEnvironment(t *testing.T) {
 	if strings.Count(env, "PORT=") != 3 { // PORT, DB_PORT, MAIL_PORT
 		t.Errorf("duplicate keys:\n%s", env)
 	}
+	if strings.Contains(env, "=\n") {
+		t.Errorf("empty values break NSSM:\n%s", env)
+	}
 }
 
 func TestValidateApp(t *testing.T) {

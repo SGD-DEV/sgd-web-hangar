@@ -435,12 +435,14 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
   onClose: () => void
   onCreated: (name: string, detail?: string, openApp?: boolean) => void
 }) {
-  const [p, setP] = useState({ name: '', framework: 'plain', version: '', proxyTarget: '', path: '', laravelDocRoot: 'public', gitUrl: '' })
+  const [p, setP] = useState({ name: '', framework: 'plain', version: '', proxyTarget: '', path: '', laravelDocRoot: 'public', gitUrl: '', domain: '' })
   const [nameTouched, setNameTouched] = useState(false)
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const set = (patch: Partial<typeof p>) => setP(prev => ({ ...prev, ...patch }))
   const name = p.name.trim()
+  const nameValid = /^[a-z0-9][a-z0-9-]{0,62}$/.test(name)
+  const domain = p.domain.trim().toLowerCase()
 
   async function create() {
     if (!name) return
@@ -454,7 +456,7 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
         await call('CreateProjectWithOptions', {
           name,
           path: p.path.trim() || `${projectsRoot}\\${name}`,
-          domain: '',
+          domain,
           framework: 'proxy',
           proxy_target: `http://127.0.0.1:${port}`,
         })
@@ -467,7 +469,7 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
         await call('CreateProjectWithOptions', {
           name,
           path: p.path.trim(),
-          domain: '',
+          domain,
           framework: p.framework === 'proxy' ? 'proxy' : 'php',
           proxy_target: p.proxyTarget.trim(),
         })
@@ -480,6 +482,11 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
           const me = all.find(x => x.name === name)
           if (me) await call('UpdateProjectSettings', name, settingsOf(me, { document_root: me.path }))
         }
+      }
+      if (domain && (p.framework === 'clone' || !['app', 'proxy', 'plain'].includes(p.framework))) {
+        const all = await call<Project[]>('GetProjects')
+        const me = all.find(x => x.name === name)
+        if (me && me.domain !== domain) await call('UpdateProjectSettings', name, settingsOf(me, { domain }))
       }
       onCreated(name, detail, openApp)
     } catch (e) {
@@ -496,8 +503,13 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
         <button onClick={onClose} className="text-text-dim hover:text-text-primary"><X size={14} /></button>
       </div>
       <div className="space-y-3">
-        <Field label="Project name" hint={name ? <>Local address: <span className="font-mono">http://{name.toLowerCase()}.test</span></> : undefined}>
-          <input className={inputCls} value={p.name} onChange={e => { setNameTouched(true); set({ name: e.target.value }) }} placeholder="my-site" disabled={creating} autoFocus />
+        <Field label="Project name" hint={name && !nameValid
+          ? <span className="text-status-red">Lowercase letters, digits and - only. Put a domain like blog.local into the field below.</span>
+          : 'Used for the folder and the database name.'}>
+          <input className={inputCls} value={p.name} onChange={e => { setNameTouched(true); set({ name: e.target.value.toLowerCase() }) }} placeholder="my-site" disabled={creating} autoFocus />
+        </Field>
+        <Field label="Local domain (optional)" hint={<>Reachable on this machine via the hosts file. Default: <span className="font-mono">{(nameValid ? name : 'my-site') + '.test'}</span></>}>
+          <input className={inputCls} value={p.domain} onChange={e => set({ domain: e.target.value })} placeholder={`${nameValid ? name : 'my-site'}.test`} disabled={creating} />
         </Field>
         {p.framework === 'clone' && (
           <Field label="Repository URL" hint="https only. For private repositories Git opens a login window (Git Credential Manager) and remembers it.">
@@ -544,7 +556,7 @@ function CreateProject({ projectsRoot, onClose, onCreated }: {
           </Field>
         )}
         {error && <div className="text-xs text-status-red whitespace-pre-wrap">{error}</div>}
-        <Button variant="primary" busy={creating} disabled={!name || (p.framework === 'clone' && !/^https:\/\/[^/]+\/.+/.test(p.gitUrl.trim()))} onClick={create}>
+        <Button variant="primary" busy={creating} disabled={!nameValid || (p.framework === 'clone' && !/^https:\/\/[^/]+\/.+/.test(p.gitUrl.trim()))} onClick={create}>
           {creating ? (p.framework === 'plain' || p.framework === 'proxy' ? 'Creating...' : 'Installing - this can take a few minutes...') : 'Create'}
         </Button>
       </div>
