@@ -51,6 +51,7 @@ const tunnelStatus: Record<string, string> = { healthy: 'verbunden', degraded: '
 const servicePresets = [
   { label: 'Filebrowser', service: 'http://127.0.0.1:8081' },
   { label: 'SYNDOC', service: 'http://127.0.0.1:3000' },
+  { label: 'Machine Controller', service: 'http://127.0.0.1:8765' },
 ]
 
 export default function RemotePanel({ apiToken, onChanged, log }: { apiToken: boolean; onChanged: () => void; log: ReactNode }) {
@@ -232,7 +233,7 @@ function RemoteRoutes({ routes, missing, onReport }: { routes: Rule[]; missing: 
         </Field>
         <Field label="Ziel">
           <div className="flex gap-2">
-            <select className={`${inputCls} w-36`} value={isPreset(service) ? service : ''} onChange={e => setService(e.target.value || 'http://127.0.0.1:')}>
+            <select className={`${inputCls} w-44`} value={isPreset(service) ? service : ''} onChange={e => setService(e.target.value || 'http://127.0.0.1:')}>
               {servicePresets.map(p => <option key={p.service} value={p.service}>{p.label}</option>)}
               <option value="">Anderer Port…</option>
             </select>
@@ -242,7 +243,7 @@ function RemoteRoutes({ routes, missing, onReport }: { routes: Rule[]; missing: 
         <Button variant="primary" busy={applying} disabled={!host.trim()} onClick={add} icon={<Plus size={12} />}>Veröffentlichen</Button>
       </div>
       <p className="px-4 pb-3 text-[11px] text-status-yellow">
-        Dienste mit eigenem Login (Filebrowser, SYNDOC) bitte nur mit Cloudflare Access davor veröffentlichen. Datenbank-Tools, Mailpit und dieses Panel nie.
+        Nur Dienste mit eigenem Login veröffentlichen (Filebrowser, SYNDOC, Machine Controller) und dort starke Passwörter verwenden. Datenbank-Tools, Mailpit und dieses Panel nie.
       </p>
     </Card>
   )
