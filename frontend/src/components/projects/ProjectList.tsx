@@ -406,6 +406,8 @@ function EditProject({ project, phpVersions, onClose, onSaved }: {
   }))
   const isProxy = project.framework === 'proxy'
   const set = (patch: Partial<typeof form>) => setForm(f => ({ ...f, ...patch }))
+  const [autoPublish, setAutoPublish] = useState(false)
+  useEffect(() => { call<boolean>('TunnelAutoPublish').then(setAutoPublish).catch(() => {}) }, [])
 
   const [save, saving] = useAction(async () => {
     const aliases = form.aliasesText.split(/[\s,]+/).map(s => s.trim()).filter(Boolean)
@@ -415,7 +417,9 @@ function EditProject({ project, phpVersions, onClose, onSaved }: {
     return added
   }, {
     success: added => added.length
-      ? `Gespeichert - ${added.join(', ')} hinzugefügt. Zum Veröffentlichen auf der Seite Tunnel „Sync from projects“ klicken.`
+      ? autoPublish
+        ? `Gespeichert - ${added.join(', ')} ist über den Tunnel veröffentlicht (DNS braucht evtl. 1-2 Minuten).`
+        : `Gespeichert - ${added.join(', ')} hinzugefügt. Zum Veröffentlichen auf der Seite Tunnel „Aus Projekten übernehmen“ klicken.`
       : 'Projekt gespeichert',
     error: 'Projekt konnte nicht gespeichert werden',
   })
@@ -436,7 +440,9 @@ function EditProject({ project, phpVersions, onClose, onSaved }: {
 
         <Field
           label="Öffentliche Domains"
-          hint={<>Eine pro Zeile, z. B. <span className="font-mono">blog.example.com</span>. Die Seite antwortet auf diese Namen; veröffentlicht werden sie auf der Seite Tunnel (Sync from projects, dann Create DNS).</>}
+          hint={<>Eine pro Zeile, z. B. <span className="font-mono">blog.example.com</span>. Die Seite antwortet auf diese Namen; {autoPublish
+            ? 'beim Speichern legt Hangar Route und DNS-Eintrag bei Cloudflare automatisch an.'
+            : 'veröffentlicht werden sie auf der Seite Tunnel („Aus Projekten übernehmen“, dann DNS).'}</>}
         >
           <textarea
             className={`${inputCls} h-20 resize-y`}

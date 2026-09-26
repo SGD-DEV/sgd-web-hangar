@@ -762,6 +762,11 @@ func (a *App) RemoveProject(name string, deleteFolder, dropDatabase bool) (strin
 	} else if inRoot {
 		_ = a.projectManager.SetFolderIgnored(filepath.Base(folder), true)
 	}
+	if len(p.Aliases) > 0 {
+		if err := a.autoPublishTunnel(); err != nil {
+			return backup, fmt.Errorf("Projekt entfernt, aber der Tunnel konnte nicht aktualisiert werden: %w", err)
+		}
+	}
 	return backup, nil
 }
 

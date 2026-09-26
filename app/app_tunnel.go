@@ -110,15 +110,22 @@ func (a *App) hostnameOwners() map[string]string {
 }
 
 // SyncTunnelFromProjects makes the ingress list match the projects' public
-// domains: every alias gets a rule to the web server, and web-server rules
-// whose hostname no project claims any more are dropped. Rules for other
-// services (Filebrowser, an app on another port, ...) are left alone.
-// Returns the new config without saving, so the user can review it first.
+// domains (see mergeProjectRules). Returns the new config without saving,
+// so the user can review it first.
 func (a *App) SyncTunnelFromProjects() (tunnel.Config, error) {
 	cfg, err := a.GetTunnelConfig()
 	if err != nil {
 		return cfg, err
 	}
+	cfg.Ingress = a.mergeProjectRules(cfg.Ingress)
+	return cfg, nil
+}
+
+// mergeProjectRules gives every project alias a rule to the web server and
+// drops web-server rules whose hostname no project claims any more. Rules
+// for other services (Filebrowser, an app on another port, ...) are left
+// alone.
+func (a *App) mergeProjectRules(existing []tunnel.IngressRule) []tunnel.IngressRule {
 	origin := a.WebServerOrigin()
 	isWebOrigin := func(service string) bool {
 		s := strings.TrimRight(strings.ToLower(service), "/")
@@ -127,9 +134,9 @@ func (a *App) SyncTunnelFromProjects() (tunnel.Config, error) {
 	}
 	owners := a.hostnameOwners()
 
-	var rules []tunnel.IngressRule
+	rules := []tunnel.IngressRule{}
 	have := map[string]bool{}
-	for _, r := range cfg.Ingress {
+	for _, r := range existing {
 		if r.Hostname == "" && r.Path == "" {
 			continue // catch-all, re-added on save
 		}
@@ -137,6 +144,7 @@ func (a *App) SyncTunnelFromProjects() (tunnel.Config, error) {
 			continue // stale: no project answers to this host any more
 		}
 		have[r.Hostname] = true
+		r.FromProject = owners[r.Hostname]
 		rules = append(rules, r)
 	}
 	for _, p := range a.projectManager.List() {
@@ -148,8 +156,99 @@ func (a *App) SyncTunnelFromProjects() (tunnel.Config, error) {
 			have[alias] = true
 		}
 	}
-	cfg.Ingress = rules
-	return cfg, nil
+	return rules
+}
+
+// --- Dashboard (token) tunnels, edited through the Cloudflare API ---
+
+// SetCloudflareAPIToken checks and stores the API token, then publishes
+// the projects' domains right away.
+func (a *App) SetCloudflareAPIToken(token string) (tunnel.SyncReport, error) {
+	t, err := a.tunnelMgr()
+	if err != nil {
+		return tunnel.SyncReport{}, err
+	}
+	if err := t.SetAPIToken(token); err != nil {
+		return tunnel.SyncReport{}, err
+	}
+	return a.SyncTunnelRemote()
+}
+
+// GetTunnelRemoteState returns routes, DNS status and leftovers of old
+// tunnels; routes are annotated with the project that owns the hostname.
+func (a *App) GetTunnelRemoteState() (tunnel.RemoteState, error) {
+	t, err := a.tunnelMgr()
+	if err != nil {
+		return tunnel.RemoteState{}, err
+	}
+	st, err := t.GetRemoteState()
+	owners := a.hostnameOwners()
+	for i := range st.Routes {
+		st.Routes[i].FromProject = owners[st.Routes[i].Hostname]
+	}
+	return st, err
+}
+
+// SyncTunnelRemote publishes every project's public domains: routes to the
+// web server plus DNS records, and removes those of dropped domains.
+func (a *App) SyncTunnelRemote() (tunnel.SyncReport, error) {
+	t, err := a.tunnelMgr()
+	if err != nil {
+		return tunnel.SyncReport{}, err
+	}
+	rules, err := t.RemoteRoutes()
+	if err != nil {
+		return tunnel.SyncReport{}, err
+	}
+	return t.ApplyRemoteRoutes(a.mergeProjectRules(rules))
+}
+
+// SaveTunnelRemoteRoutes stores hand-made routes (Filebrowser, apps on
+// other ports, ...); project domains are always kept.
+func (a *App) SaveTunnelRemoteRoutes(rules []tunnel.IngressRule) (tunnel.SyncReport, error) {
+	t, err := a.tunnelMgr()
+	if err != nil {
+		return tunnel.SyncReport{}, err
+	}
+	return t.ApplyRemoteRoutes(a.mergeProjectRules(rules))
+}
+
+func (a *App) DeleteTunnelDNSRecord(zoneID, recordID string) error {
+	t, err := a.tunnelMgr()
+	if err != nil {
+		return err
+	}
+	return t.DeleteDNSRecord(zoneID, recordID)
+}
+
+func (a *App) DeleteRemoteTunnel(id string) error {
+	t, err := a.tunnelMgr()
+	if err != nil {
+		return err
+	}
+	return t.DeleteRemoteTunnel(id)
+}
+
+// TunnelAutoPublish reports whether saving a project publishes its public
+// domains automatically.
+func (a *App) TunnelAutoPublish() bool {
+	return a.tunnel != nil && a.tunnel.RemoteReady()
+}
+
+// autoPublishTunnel runs SyncTunnelRemote after a project's domains changed
+// when Hangar manages a dashboard tunnel; otherwise it does nothing.
+func (a *App) autoPublishTunnel() error {
+	if !a.TunnelAutoPublish() {
+		return nil
+	}
+	rep, err := a.SyncTunnelRemote()
+	if err != nil {
+		return err
+	}
+	if len(rep.Errors) > 0 {
+		return fmt.Errorf("%s", strings.Join(rep.Errors, "; "))
+	}
+	return nil
 }
 
 func (a *App) TunnelLogin() error {

@@ -269,12 +269,21 @@ func (a *App) UpdateProjectSettings(name string, s projects.ProjectSettings) (pr
 	if a.projectManager == nil {
 		return projects.Project{}, fmt.Errorf("project manager not initialized")
 	}
+	var oldAliases []string
+	if old, err := a.projectManager.Get(name); err == nil {
+		oldAliases = old.Aliases
+	}
 	p, err := a.projectManager.UpdateSettings(name, s)
 	if err != nil {
 		return projects.Project{}, err
 	}
 	if err := a.projectManager.EnsureProjectsReady(); err != nil {
 		return p, fmt.Errorf("gespeichert, aber der Webserver konnte nicht vorbereitet werden: %w", err)
+	}
+	if strings.Join(oldAliases, ",") != strings.Join(p.Aliases, ",") {
+		if err := a.autoPublishTunnel(); err != nil {
+			return p, fmt.Errorf("gespeichert, aber der Tunnel konnte nicht aktualisiert werden: %w", err)
+		}
 	}
 	return p, nil
 }

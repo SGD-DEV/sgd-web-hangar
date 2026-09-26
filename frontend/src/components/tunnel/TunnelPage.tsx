@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Cloud, RefreshCw, Plus, Trash2, Save, RotateCcw, LogIn, Globe, Wand2, FileCode, List, ScrollText, CheckCircle2, Square, Download, ExternalLink } from 'lucide-react'
 import { call, toast, useAction, errorMessage } from '../../lib/api'
 import { Button, Card, Field, StatusDot, inputCls } from '../ui/Controls'
+import RemotePanel from './RemotePanel'
 
 interface Info {
   config_path: string
@@ -13,6 +14,9 @@ interface Info {
   service_name: string
   service_state: string
   service_detail?: string
+  mode: 'remote' | 'local'
+  tunnel_id?: string
+  api_token: boolean
 }
 
 interface Rule {
@@ -104,9 +108,11 @@ export default function TunnelPage() {
 
       {info && <StatusCard info={info} cfg={cfg} onChanged={() => { loadInfo(); loadConfig() }} />}
 
-      {info && setupNeeded && <SetupWizard info={info} onDone={() => { loadInfo(); loadConfig() }} />}
+      {info?.mode === 'remote' && <RemotePanel apiToken={info.api_token} onChanged={loadInfo} log={<TunnelLog />} />}
 
-      {cfg && !setupNeeded && (
+      {info?.mode === 'local' && setupNeeded && <SetupWizard info={info} onDone={() => { loadInfo(); loadConfig() }} />}
+
+      {info?.mode === 'local' && cfg && !setupNeeded && (
         <>
           <div className="flex items-center gap-1 border-b border-border mt-6 mb-4">
             {([['rules', 'Routen', List], ['yaml', 'config.yml', FileCode], ['log', 'Log', ScrollText]] as const).map(([id, label, Icon]) => (
@@ -147,6 +153,7 @@ export default function TunnelPage() {
 
 function StatusCard({ info, cfg, onChanged }: { info: Info; cfg: TunnelConfig | null; onChanged: () => void }) {
   const state = info.service_state
+  const remote = info.mode === 'remote'
   const [install, installing] = useAction(async () => { await call('InstallTunnelService'); onChanged() },
     { success: 'Tunnel-Dienst installiert und gestartet', error: 'Dienst-Installation fehlgeschlagen' })
   const [restart, restarting] = useAction(async () => { await call('RestartTunnel'); onChanged() },
@@ -170,7 +177,7 @@ function StatusCard({ info, cfg, onChanged }: { info: Info; cfg: TunnelConfig | 
         </div>
         <div>
           <p className="text-xs text-text-muted mb-1">Tunnel</p>
-          <p className="text-xs font-mono truncate" title={cfg?.tunnel}>{cfg?.tunnel || '-'}</p>
+          <p className="text-xs font-mono truncate" title={remote ? info.tunnel_id : cfg?.tunnel}>{(remote ? info.tunnel_id : cfg?.tunnel) || '-'}</p>
         </div>
         <div>
           <p className="text-xs text-text-muted mb-1">cloudflared</p>
@@ -178,7 +185,9 @@ function StatusCard({ info, cfg, onChanged }: { info: Info; cfg: TunnelConfig | 
         </div>
         <div>
           <p className="text-xs text-text-muted mb-1">Cloudflare-Konto</p>
-          <p className="text-xs">{info.logged_in ? 'Angemeldet' : 'Nicht angemeldet'}</p>
+          {remote
+            ? <p className="text-xs">{info.api_token ? 'Verbunden (API-Token)' : 'API-Token fehlt'}</p>
+            : <p className="text-xs">{info.logged_in ? 'Angemeldet' : 'Nicht angemeldet'}</p>}
         </div>
       </div>
       <div className="flex items-center gap-2 mt-4 pt-4 border-t border-border">
@@ -193,10 +202,12 @@ function StatusCard({ info, cfg, onChanged }: { info: Info; cfg: TunnelConfig | 
               {state === 'running' ? 'Neu starten' : 'Starten'}
             </Button>
             {state === 'running' && <Button variant="danger" busy={stopping} onClick={stop} icon={<Square size={12} />}>Stoppen</Button>}
-            <Button busy={installing} onClick={install} title="Dienst neu installieren (z. B. nachdem die Konfiguration verschoben wurde)">Dienst neu installieren</Button>
+            {!remote && <Button busy={installing} onClick={install} title="Dienst neu installieren (z. B. nachdem die Konfiguration verschoben wurde)">Dienst neu installieren</Button>}
           </>
         )}
-        <span className="text-[11px] text-text-dim font-mono ml-auto truncate" title={info.config_path}>{info.config_path}</span>
+        <span className="text-[11px] text-text-dim ml-auto truncate">
+          {remote ? 'Tunnel aus dem Cloudflare-Dashboard - Hangar pflegt Routen und DNS über die API' : <span className="font-mono" title={info.config_path}>{info.config_path}</span>}
+        </span>
       </div>
     </Card>
   )

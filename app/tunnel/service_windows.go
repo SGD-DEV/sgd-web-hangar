@@ -14,6 +14,8 @@ import (
 
 func serviceState(name string) (string, string) { return winsvc.State(name) }
 
+func serviceParameters(name string) string { return winsvc.ReadAppParameters(name) }
+
 // RestartService stops (if running) and starts the tunnel service so a new
 // config.yml takes effect.
 func (m *Manager) RestartService() error { return winsvc.Restart(m.ServiceName()) }
@@ -27,6 +29,9 @@ func (m *Manager) StopService() error { return winsvc.Stop(m.ServiceName()) }
 // the current user start/stop/query rights on the service, so Hangar can
 // restart the tunnel later without elevation.
 func (m *Manager) InstallService() error {
+	if ref := m.RemoteRef(); ref.TunnelID != "" {
+		return fmt.Errorf("der Dienst läuft mit einem Tunnel-Token aus dem Cloudflare-Dashboard - eine Neuinstallation hier würde ihn durch die config.yml-Variante ersetzen")
+	}
 	nssm := winsvc.FindNSSM()
 	if nssm == "" {
 		return fmt.Errorf("nssm.exe not found - install NSSM (winget install NSSM.NSSM) and add it to PATH")

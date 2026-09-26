@@ -47,6 +47,22 @@ func WriteNSSMParams(service string, p NSSMParams) error {
 	return k.SetStringsValue("AppEnvironmentExtra", p.Environment)
 }
 
+// ReadAppParameters returns the command-line arguments NSSM starts the
+// service with ("" if the service or value doesn't exist). Reading needs no
+// elevation.
+func ReadAppParameters(service string) string {
+	k, err := registry.OpenKey(registry.LOCAL_MACHINE, paramsKey(service), registry.QUERY_VALUE)
+	if err != nil {
+		return ""
+	}
+	defer k.Close()
+	v, _, err := k.GetStringValue("AppParameters")
+	if err != nil {
+		return ""
+	}
+	return v
+}
+
 // GrantParamsScript returns PowerShell lines that give the user with sid
 // write access to the service's NSSM Parameters key.
 func GrantParamsScript(serviceVar, sid string) []string {

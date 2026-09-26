@@ -65,6 +65,11 @@ type Info struct {
 	ServiceName     string `json:"service_name"`
 	ServiceState    string `json:"service_state"` // running | stopped | not-installed | unknown
 	ServiceDetail   string `json:"service_detail,omitempty"`
+	// Mode is "remote" when the service runs a dashboard tunnel from a
+	// token (routes live at Cloudflare), "local" for config.yml tunnels.
+	Mode     string `json:"mode"`
+	TunnelID string `json:"tunnel_id,omitempty"`
+	APIToken bool   `json:"api_token"`
 }
 
 // Tunnel is one tunnel from `cloudflared tunnel list`.
@@ -177,6 +182,12 @@ func (m *Manager) GetInfo() Info {
 		}
 	}
 	info.ServiceState, info.ServiceDetail = serviceState(info.ServiceName)
+	info.Mode = "local"
+	if ref := m.RemoteRef(); ref.TunnelID != "" {
+		info.Mode = "remote"
+		info.TunnelID = ref.TunnelID
+		info.APIToken = m.HasAPIToken()
+	}
 	return info
 }
 
