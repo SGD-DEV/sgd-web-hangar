@@ -29,10 +29,10 @@ func AllPackages() []PackageEntry {
 		// PHP 8.5 is the newest stable. Bundle is "8.3 = recommended" because
 		// the broadest ecosystem (Laravel 11, WordPress, most prod hosts) is
 		// still pinned at 8.3 LTS-style support windows.
-		{Name: "php", Label: "PHP 8.5 (latest)", Version: "8.5", URL: "https://windows.php.net/downloads/releases/archives/php-8.5.4-nts-Win32-vs17-x64.zip", Category: CategoryPHP, SubDir: "php/8.5"},
-		{Name: "php", Label: "PHP 8.4", Version: "8.4", URL: "https://windows.php.net/downloads/releases/archives/php-8.4.12-nts-Win32-vs17-x64.zip", Category: CategoryPHP, SubDir: "php/8.4"},
-		{Name: "php", Label: "PHP 8.3 (recommended)", Version: "8.3", URL: "https://windows.php.net/downloads/releases/archives/php-8.3.25-nts-Win32-vs16-x64.zip", Category: CategoryPHP, SubDir: "php/8.3"},
-		{Name: "php", Label: "PHP 8.2", Version: "8.2", URL: "https://windows.php.net/downloads/releases/archives/php-8.2.28-nts-Win32-vs16-x64.zip", Category: CategoryPHP, SubDir: "php/8.2"},
+		{Name: "php", Label: "PHP 8.5 (latest)", Version: "8.5", URL: "https://windows.php.net/downloads/releases/archives/php-8.5.12-nts-Win32-vs17-x64.zip", Category: CategoryPHP, SubDir: "php/8.5"},
+		{Name: "php", Label: "PHP 8.4", Version: "8.4", URL: "https://windows.php.net/downloads/releases/archives/php-8.4.27-nts-Win32-vs17-x64.zip", Category: CategoryPHP, SubDir: "php/8.4"},
+		{Name: "php", Label: "PHP 8.3 (recommended)", Version: "8.3", URL: "https://windows.php.net/downloads/releases/archives/php-8.3.36-nts-Win32-vs16-x64.zip", Category: CategoryPHP, SubDir: "php/8.3"},
+		{Name: "php", Label: "PHP 8.2", Version: "8.2", URL: "https://windows.php.net/downloads/releases/archives/php-8.2.35-nts-Win32-vs16-x64.zip", Category: CategoryPHP, SubDir: "php/8.2"},
 		{Name: "php", Label: "PHP 8.1", Version: "8.1", URL: "https://windows.php.net/downloads/releases/archives/php-8.1.32-nts-Win32-vs16-x64.zip", Category: CategoryPHP, SubDir: "php/8.1"},
 		{Name: "php", Label: "PHP 7.3", Version: "7.3", URL: "https://windows.php.net/downloads/releases/archives/php-7.3.33-nts-Win32-VC15-x64.zip", Category: CategoryPHP, SubDir: "php/7.3"},
 
